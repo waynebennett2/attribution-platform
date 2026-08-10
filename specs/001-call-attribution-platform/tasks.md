@@ -28,14 +28,14 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 **Purpose**: Repository and toolchain initialization per plan.md's Project Structure.
 
-- [ ] T001 Create the .NET 8 solution and the five backend projects (`Attribution.Api`, `Attribution.Application`, `Attribution.Domain`, `Attribution.Infrastructure`, `Attribution.Workers`) in `src/` per plan.md Project Structure, with project references respecting the layering in Constitution Principle II (Api → Application → Domain ← Infrastructure)
-- [ ] T002 [P] Create the `client/dni-script` package skeleton (`package.json`, `src/`, `tests/`) per plan.md Project Structure
-- [ ] T003 [P] Create the three test projects (`Attribution.UnitTests`, `Attribution.IntegrationTests`, `Attribution.Contract`) in `tests/` referencing xUnit
-- [ ] T004 [P] Add Dapper, MySqlConnector and FluentMigrator package references to `Attribution.Infrastructure`, and `Microsoft.Extensions.Hosting` to `Attribution.Workers`, per research.md §1, §3, §4, §13
-- [ ] T005 [P] Add Testcontainers.MySql to `Attribution.IntegrationTests` and Playwright (`@playwright/test`) to `client/dni-script`
-- [ ] T006 [P] Add `.editorconfig` and `dotnet format` configuration at the repository root, and ESLint/Prettier configuration in `client/dni-script`
-- [ ] T007 [P] Add `docker-compose.yml` at the repository root with a MySQL 8.0+ service, per quickstart.md §1
-- [ ] T008 Configure the CI pipeline (dotnet build, xUnit unit + integration tests, Playwright tests, static analysis) as a merge gate per the constitution's CI/CD constraint
+- [X] T001 Create the .NET 8 solution and the five backend projects (`Attribution.Api`, `Attribution.Application`, `Attribution.Domain`, `Attribution.Infrastructure`, `Attribution.Workers`) in `src/` per plan.md Project Structure, with project references respecting the layering in Constitution Principle II (Api → Application → Domain ← Infrastructure)
+- [X] T002 [P] Create the `client/dni-script` package skeleton (`package.json`, `src/`, `tests/`) per plan.md Project Structure
+- [X] T003 [P] Create the three test projects (`Attribution.UnitTests`, `Attribution.IntegrationTests`, `Attribution.Contract`) in `tests/` referencing xUnit
+- [X] T004 [P] Add Dapper, MySqlConnector and FluentMigrator package references to `Attribution.Infrastructure`, and `Microsoft.Extensions.Hosting` to `Attribution.Workers`, per research.md §1, §3, §4, §13
+- [X] T005 [P] Add Testcontainers.MySql to `Attribution.IntegrationTests` and Playwright (`@playwright/test`) to `client/dni-script`
+- [X] T006 [P] Add `.editorconfig` and `dotnet format` configuration at the repository root, and ESLint/Prettier configuration in `client/dni-script`
+- [X] T007 [P] Add `docker-compose.yml` at the repository root with a MySQL 8.0+ service, per quickstart.md §1
+- [X] T008 Configure the CI pipeline (dotnet build, xUnit unit + integration tests, Playwright tests, static analysis) as a merge gate per the constitution's CI/CD constraint
 
 ---
 

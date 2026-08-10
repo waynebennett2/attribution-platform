@@ -1,0 +1,22 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: attribution-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: attribution_dev_root
+      MYSQL_DATABASE: attribution
+      MYSQL_USER: attribution
+      MYSQL_PASSWORD: attribution_dev
+    ports:
+      - "3306:3306"
+    volumes:
+      - attribution-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pattribution_dev_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  attribution-mysql-data:
