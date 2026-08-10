@@ -58,7 +58,7 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 ### Implementation for Foundational
 
 - [ ] T009 Configure the FluentMigrator runner project and migration-execution entry point in `src/Attribution.Infrastructure/Data/Migrations/` per research.md §13
-- [ ] T010 Author the baseline schema migration covering every entity in data-model.md (Website, Number Pool, Tracking Number, Allocation, Visitor, Session, Call, Call Leg, Attribution, Qualification Rule, Qualification Result, Conversion Publication, Ingestion Checkpoint, User, Alert, Audit Entry, Review Case) in `src/Attribution.Infrastructure/Data/Migrations/` (depends on T009)
+- [ ] T010 Author the baseline schema migration covering every entity in data-model.md (Website, Number Pool, Tracking Number, Allocation, Visitor, Session, Call, Call Leg, Attribution, Qualification Rule, Qualification Result, Conversion Publication, Ingestion Checkpoint, User, Role, Alert, Audit Entry, Review Case) in `src/Attribution.Infrastructure/Data/Migrations/` (depends on T009)
 - [ ] T011 [P] Implement the Dapper connection-factory and base repository pattern in `src/Attribution.Infrastructure/Data/` (depends on T009)
 - [ ] T012 [P] Implement the Website domain entity and repository in `src/Attribution.Domain/Websites/Website.cs`, `src/Attribution.Infrastructure/Data/WebsiteRepository.cs` (depends on T011)
 - [ ] T013 [P] Implement the User/Role domain entities and repository in `src/Attribution.Domain/Identity/User.cs`, `src/Attribution.Infrastructure/Data/UserRepository.cs` (depends on T011)
@@ -130,21 +130,21 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 ### Tests for User Story 2
 
 - [ ] T042 [P] [US2] Unit tests for strict DID + window attribution matching (attributed/unattributed/ambiguous) in `tests/Attribution.UnitTests/Attribution/AttributionServiceTests.cs`
-- [ ] T043 [P] [US2] Unit tests for idempotent CDR/Call Leg upsert and checkpoint advancement in `tests/Attribution.UnitTests/Ingestion/IngestionTests.cs`
+- [ ] T043 [P] [US2] Unit tests for idempotent CDR/Call Leg upsert and checkpoint advancement (FR-017) in `tests/Attribution.UnitTests/Ingestion/IngestionTests.cs`
 - [ ] T044 [P] [US2] Unit tests for FR-045 re-derivation on restated or in-progress call records (rule-version-at-call-time preserved, superseded history retained) in `tests/Attribution.UnitTests/Attribution/ReDerivationTests.cs`
 - [ ] T045 [P] [US2] Integration test covering SC-001's full seeded-call scenario set (in-window, expired-but-in-extension, closed-window, never-allocated, suspended-number, DST transition, midnight-crossing) against a MySQL Testcontainer in `tests/Attribution.IntegrationTests/Attribution/SeededCallAttributionTests.cs`
 - [ ] T046 [P] [US2] Integration test: re-ingesting an identical batch three times produces zero change in any report total (SC-002) in `tests/Attribution.IntegrationTests/Ingestion/IdempotentReingestionTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T047 [P] [US2] Implement Call and Call Leg domain entities and repositories (idempotent upsert on source natural keys, orphaned-leg handling) in `src/Attribution.Domain/Calls/`, `src/Attribution.Infrastructure/Data/` (depends on T011)
+- [ ] T047 [P] [US2] Implement Call and Call Leg domain entities and repositories (idempotent upsert on source natural keys, orphaned-leg handling) in `src/Attribution.Domain/Calls/`, `src/Attribution.Infrastructure/Data/` per FR-017 (depends on T011)
 - [ ] T048 [P] [US2] Implement the Attribution domain entity and repository (attributed/unattributed/ambiguous state machine, superseded-history rows) in `src/Attribution.Domain/Calls/Attribution.cs`, `src/Attribution.Infrastructure/Data/AttributionRepository.cs` (depends on T011)
 - [ ] T049 [P] [US2] Implement the Ingestion Checkpoint domain entity and repository in `src/Attribution.Domain/Calls/IngestionCheckpoint.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
 - [ ] T050 [US2] Implement the Analytics for 8x8 Work client (authentication, CDR/Call Leg polling) in `src/Attribution.Infrastructure/Ingestion8x8/` per research.md §8 (depends on T049)
 - [ ] T051 [US2] Implement `AttributionService` (exact DID + window matching, unattributed/ambiguous classification, evidence storage per FR-019) in `src/Attribution.Application/Attribution/AttributionService.cs` per FR-018–FR-021 (depends on T048)
 - [ ] T052 [US2] Implement Review Case creation on ambiguous attribution in `src/Attribution.Application/Attribution/AttributionService.cs`, `src/Attribution.Domain/Audit/ReviewCase.cs` per FR-021, FR-036 (depends on T051)
 - [ ] T053 [US2] Implement re-derivation on restated/in-progress calls (FR-045: update in place, re-derive against rule version at call time, retain superseded history, idempotent on unchanged records) in `src/Attribution.Application/Attribution/ReDerivationService.cs` (depends on T051)
-- [ ] T054 [US2] Implement the `IngestionWorker` loop (poll on FR-016's configurable cadence, idempotent upsert, checkpoint advance, orphaned-Call-Leg handling) in `src/Attribution.Workers/IngestionWorker/` per research.md §3, §8 (depends on T050, T051, T053)
+- [ ] T054 [US2] Implement the `IngestionWorker` loop (poll on FR-016's configurable cadence, idempotent upsert per FR-017, checkpoint advance, orphaned-Call-Leg handling) in `src/Attribution.Workers/IngestionWorker/` per research.md §3, §8 (depends on T050, T051, T053)
 - [ ] T055 [P] [US2] Implement the replay/backfill command (operator-specified period, no duplicate records/attributions, safe alongside live ingestion) in `src/Attribution.Application/Attribution/BackfillService.cs` per FR-042 (depends on T054)
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
@@ -218,7 +218,7 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 ### Implementation for User Story 5
 
 - [ ] T078 [P] [US5] Implement the Conversion Publication domain entity and repository in `src/Attribution.Domain/Publication/ConversionPublication.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
-- [ ] T079 [P] [US5] Implement the Google Ads offline-conversions client (upload, retract, adjust) in `src/Attribution.Infrastructure/GoogleAds/` per research.md §6
+- [ ] T079 [P] [US5] Implement the Google Ads offline-conversions client (upload, retract, adjust) in `src/Attribution.Infrastructure/GoogleAds/` per research.md §6, FR-025
 - [ ] T080 [P] [US5] Implement the GA4 Measurement Protocol client in `src/Attribution.Infrastructure/GA4/` per research.md §7
 - [ ] T081 [US5] Implement `PublicationService` (write the outbox row in the same transaction as the qualification decision, per-episode idempotency key) in `src/Attribution.Application/Publication/PublicationService.cs` per FR-025–FR-028, research.md §3 (depends on T078)
 - [ ] T082 [US5] Implement the `PublicationWorker` loop (drain the outbox, retry with backoff, record every attempt's outcome) in `src/Attribution.Workers/PublicationWorker/` per FR-027, FR-028 (depends on T079, T080, T081)

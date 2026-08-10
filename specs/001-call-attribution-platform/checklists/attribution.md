@@ -9,7 +9,7 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are the validation rules that make a bulk-imported number entry "malformed" (FR-002) explicitly enumerated, rather than left to implementation judgment? [Gap, Spec §FR-002]
+- [x] CHK001 Are the validation rules that make a bulk-imported number entry "malformed" (FR-002) explicitly enumerated, rather than left to implementation judgment? [Gap, Spec §FR-002] — Resolved 2026-08-10: not a syntactically valid E.164 number (digits + optional leading `+`, 8-15 digits total).
 - [ ] CHK002 Are the evidence fields recorded for a shadow-mode allocation (FR-049) fully enumerated and distinguished from an ordinary allocation's evidence? [Completeness, Spec §FR-019, FR-049]
 - [ ] CHK003 Is the exact structure of a qualification rule's time-of-day condition specified — start/end time, applicable days of week, and which timezone it evaluates against? [Gap, Spec §FR-023]
 

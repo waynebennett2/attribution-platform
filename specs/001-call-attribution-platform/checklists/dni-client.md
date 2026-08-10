@@ -16,7 +16,7 @@
 ## Requirement Clarity
 
 - [ ] CHK004 Is "configured phone number occurrence" in FR-008 specified to include multiple textual formatting variants of the same number (spacing, punctuation, international prefix), or only an exact string match? [Ambiguity, Spec §FR-008]
-- [ ] CHK005 Is "malformed" defined for FR-011's "never display a blank, partial or malformed number" — e.g., a tracking number substituted into a site's expected display pattern in a way that breaks that pattern? [Ambiguity, Spec §FR-011]
+- [x] CHK005 Is "malformed" defined for FR-011's "never display a blank, partial or malformed number" — e.g., a tracking number substituted into a site's expected display pattern in a way that breaks that pattern? [Ambiguity, Spec §FR-011] — Resolved 2026-08-10: digit sequence must match exactly; formatting-only differences (spacing, punctuation) don't count as malformed.
 - [ ] CHK006 Is the boundary of "that page view" in FR-014/FR-015's retain-until-consent language precisely defined for a single-page application, where no full page reload marks an obvious end? [Ambiguity, Spec §FR-014, FR-015, FR-009]
 
 ## Requirement Consistency
