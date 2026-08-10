@@ -13,6 +13,12 @@ export default [
         MutationObserver: "readonly",
         fetch: "readonly",
         console: "readonly",
+        setTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        URLSearchParams: "readonly",
+        NodeFilter: "readonly",
+        Node: "readonly",
       },
     },
     rules: {

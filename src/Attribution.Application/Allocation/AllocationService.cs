@@ -32,9 +32,16 @@ public sealed class AllocationService
     }
 
     // FR-039: also the "grant consent after initial refusal" path — called with
-    // consentGranted: true once the visitor answers the consent prompt.
+    // consentGranted: true once the visitor answers the consent prompt. FR-014: provenance
+    // defaults to Ordinary (consent already held at first page view); callers handling a
+    // late grant pass Degraded when the original entry-page arrival details are no longer
+    // recoverable (the visitor navigated away before consenting).
     public async Task<AllocateResult> AllocateAsync(
-        Guid websiteId, bool consentGranted, ArrivalDetails arrival, DateTimeOffset now)
+        Guid websiteId,
+        bool consentGranted,
+        ArrivalDetails arrival,
+        DateTimeOffset now,
+        SessionProvenance provenance = SessionProvenance.Ordinary)
     {
         var website = await _websiteRepository.GetByIdAsync(websiteId)
             ?? throw new InvalidOperationException($"Unknown website {websiteId}.");
@@ -56,7 +63,7 @@ public sealed class AllocationService
 
         var visitor = Visitor.Create(websiteId);
         var session = Session.Create(
-            visitor.Id, websiteId, arrival, SessionProvenance.Ordinary, now,
+            visitor.Id, websiteId, arrival, provenance, now,
             TimeSpan.FromSeconds(website.SessionTimeoutSeconds));
 
         var attempt = await _atomicAllocator.TryAllocateAsync(

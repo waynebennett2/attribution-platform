@@ -40,6 +40,7 @@ builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddScoped<IAllocationRepository, AllocationRepository>();
 builder.Services.AddScoped<IAtomicAllocator, AtomicAllocator>();
 builder.Services.AddScoped<AllocationService>();
+builder.Services.AddScoped<ShadowAllocationService>();
 
 // --- Audit logging (T017, T018) ---
 builder.Services.AddHttpContextAccessor();

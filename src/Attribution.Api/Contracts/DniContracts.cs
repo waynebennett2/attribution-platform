@@ -46,6 +46,20 @@ public sealed class HeartbeatResponseDto
     [JsonPropertyName("number")] public string? Number { get; set; }
 }
 
+public sealed class ShadowObserveRequestDto
+{
+    [JsonPropertyName("website_id")] public string WebsiteId { get; set; } = string.Empty;
+    [JsonPropertyName("session_id")] public string? SessionId { get; set; }
+    [JsonPropertyName("observed_number")] public string ObservedNumber { get; set; } = string.Empty;
+    [JsonPropertyName("landing_page")] public string? LandingPage { get; set; }
+    [JsonPropertyName("referrer")] public string? Referrer { get; set; }
+    [JsonPropertyName("utm")] public UtmDto? Utm { get; set; }
+    [JsonPropertyName("gclid")] public string? Gclid { get; set; }
+    [JsonPropertyName("gbraid")] public string? Gbraid { get; set; }
+    [JsonPropertyName("wbraid")] public string? Wbraid { get; set; }
+    [JsonPropertyName("ga4_client_id")] public string? Ga4ClientId { get; set; }
+}
+
 public sealed class ConsentRequestDto
 {
     [JsonPropertyName("session_id")] public string? SessionId { get; set; }

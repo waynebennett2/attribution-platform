@@ -13,11 +13,16 @@ namespace Attribution.Api.Controllers;
 public sealed class DniController : ControllerBase
 {
     private readonly AllocationService _allocationService;
+    private readonly ShadowAllocationService _shadowAllocationService;
     private readonly IWebsiteRepository _websiteRepository;
 
-    public DniController(AllocationService allocationService, IWebsiteRepository websiteRepository)
+    public DniController(
+        AllocationService allocationService,
+        ShadowAllocationService shadowAllocationService,
+        IWebsiteRepository websiteRepository)
     {
         _allocationService = allocationService;
+        _shadowAllocationService = shadowAllocationService;
         _websiteRepository = websiteRepository;
     }
 
@@ -65,7 +70,11 @@ public sealed class DniController : ControllerBase
         if (string.Equals(request.Consent, "granted", StringComparison.OrdinalIgnoreCase))
         {
             var arrival = request.ArrivalDetails is null ? ArrivalDetails.Empty : ToArrivalDetails(request.ArrivalDetails);
-            var result = await _allocationService.AllocateAsync(websiteId, consentGranted: true, arrival, DateTimeOffset.UtcNow);
+            // FR-014: if the entry-page landing details are no longer present by the time
+            // consent arrives (the visitor navigated away before answering), the session's
+            // provenance is recorded as degraded rather than crediting a substitute page.
+            var provenance = string.IsNullOrEmpty(arrival.LandingPage) ? SessionProvenance.Degraded : SessionProvenance.Ordinary;
+            var result = await _allocationService.AllocateAsync(websiteId, consentGranted: true, arrival, DateTimeOffset.UtcNow, provenance);
             return Ok(ToDto(result));
         }
 
@@ -81,6 +90,33 @@ public sealed class DniController : ControllerBase
         }
 
         return BadRequest();
+    }
+
+    // FR-049: optional per-website shadow mode. Records the session together with the
+    // number another system already displayed, without replacing anything on the page.
+    [HttpPost("shadow-observe")]
+    public async Task<IActionResult> ShadowObserve([FromBody] ShadowObserveRequestDto request)
+    {
+        if (!Guid.TryParse(request.WebsiteId, out var websiteId))
+        {
+            return NotFound();
+        }
+
+        var arrival = new ArrivalDetails(
+            request.LandingPage, request.Referrer,
+            request.Utm?.Source, request.Utm?.Medium, request.Utm?.Campaign, request.Utm?.Term, request.Utm?.Content,
+            request.Gclid, request.Gbraid, request.Wbraid, request.Ga4ClientId);
+
+        try
+        {
+            await _shadowAllocationService.RecordObservationAsync(websiteId, request.ObservedNumber, arrival, DateTimeOffset.UtcNow);
+        }
+        catch (InvalidOperationException)
+        {
+            return BadRequest();
+        }
+
+        return Ok(new { recorded = true });
     }
 
     private async Task<bool> IsOriginPermittedAsync(Guid websiteId, string origin)
