@@ -16,12 +16,12 @@
 ## Requirement Clarity
 
 - [ ] CHK004 Is "concurrent sessions" in FR-003's atomic-allocation guarantee precise enough to cover two simultaneous allocation requests from the same visitor's two open tabs, not just two different visitors? [Clarity, Spec §FR-003]
-- [ ] CHK005 Is the timezone a qualification rule's time-of-day condition evaluates against specified — the platform's single canonical storage timezone (Assumptions §Attribution and data) or each website's local timezone? [Ambiguity, Spec §FR-023]
-- [ ] CHK006 Is "short-lived" quantified for the platform-issued JWT, given SC-016 requires access to be refused on a revoked user's "next request" without waiting for session expiry? [Ambiguity, Spec §FR-046, SC-016]
+- [x] CHK005 Is the timezone a qualification rule's time-of-day condition evaluates against specified — the platform's single canonical storage timezone (Assumptions §Attribution and data) or each website's local timezone? [Ambiguity, Spec §FR-023] — Resolved via clarification 2026-08-10: each website's local timezone.
+- [x] CHK006 Is "short-lived" quantified for the platform-issued JWT, given SC-016 requires access to be refused on a revoked user's "next request" without waiting for session expiry? [Ambiguity, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: ~5-minute JWT with silent refresh; SC-016 reworded to a 5-minute bound rather than a literal next-request guarantee.
 
 ## Requirement Consistency
 
-- [ ] CHK007 Does FR-039's "release the allocated number" on consent withdrawal align with FR-006/FR-018's rule that a number is only released once its allocation window (session end + the configurable extension) closes — or is withdrawal meant as a stated exception to that extension? [Conflict, Spec §FR-039, FR-006, FR-018]
+- [x] CHK007 Does FR-039's "release the allocated number" on consent withdrawal align with FR-006/FR-018's rule that a number is only released once its allocation window (session end + the configurable extension) closes — or is withdrawal meant as a stated exception to that extension? [Conflict, Spec §FR-039, FR-006, FR-018] — Resolved via clarification 2026-08-10: withdrawal is an explicit exception, immediate release, FR-006 cooldown still applies.
 - [ ] CHK008 Are the five qualification-rule condition dimensions named in FR-023 (direction, answered, duration, website/campaign, time-of-day) consistently reflected in the Qualification Rule key entity description? [Consistency, Spec §FR-023, Key Entities]
 
 ## Acceptance Criteria Quality

@@ -16,7 +16,7 @@
 
 ## Requirement Clarity
 
-- [ ] CHK005 Is the JWT lifetime/expiry duration quantified anywhere, given it underpins both FR-046's federation model and SC-016's immediate-revocation bar? [Gap, Ambiguity, Spec §FR-046, SC-016]
+- [x] CHK005 Is the JWT lifetime/expiry duration quantified anywhere, given it underpins both FR-046's federation model and SC-016's immediate-revocation bar? [Gap, Ambiguity, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: 5-minute lifetime with silent refresh.
 - [ ] CHK006 Are the specific fields that must be redacted or surrogate-replaced during de-identification enumerated, or is "identifiers" left to implementation judgment? [Clarity, Spec §FR-040]
 - [ ] CHK007 Is the break-glass account default of 2 stated as a floor, a default, or a ceiling — is a customer explicitly permitted to configure more (or fewer)? [Clarity, Spec §FR-046]
 
@@ -28,7 +28,7 @@
 ## Acceptance Criteria Quality
 
 - [ ] CHK010 Can "zero identifiers are stored on the device" (SC-013) be objectively verified given a browser exposes multiple storage surfaces (cookies, localStorage, IndexedDB, cache, service-worker storage) — does the requirement enumerate which surfaces are in scope for verification? [Measurability, Spec §SC-013]
-- [ ] CHK011 Is the mechanism by which SC-016's "next request" revocation is actually achieved specified (per-request identity-provider check vs. a very short token TTL vs. token introspection), or only the outcome asserted? [Gap, Spec §FR-046, SC-016]
+- [x] CHK011 Is the mechanism by which SC-016's "next request" revocation is actually achieved specified (per-request identity-provider check vs. a very short token TTL vs. token introspection), or only the outcome asserted? [Gap, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: short-lived JWT (~5 min) + silent refresh.
 
 ## Scenario Coverage
 

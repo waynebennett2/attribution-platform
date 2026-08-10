@@ -21,6 +21,7 @@ Configuration root for a tracked property.
 | consent_required | |
 | shadow_mode_enabled | default false (FR-049) |
 | business_unit | for pool scoping (FR-004) |
+| local_timezone | used to evaluate a qualification rule's time-of-day condition (FR-023), independent of the canonical storage timezone |
 | created_at, updated_at | |
 
 **Validation**: `cooldown_seconds >= allocation_window_extension_seconds` (reject otherwise, FR-006).
@@ -188,7 +189,7 @@ One attempt to report one qualified call to one destination.
 | id | |
 | qualification_result_id | FK |
 | destination | google_ads \| ga4 |
-| idempotency_key | stable per (call, destination) — FR-027 |
+| idempotency_key | stable per (call, destination, publish episode) — FR-027. A new episode begins each time a call is re-qualified after having been unqualified; retries within the same episode reuse the key, a genuine retract-then-requalify gets a new one. |
 | status | pending \| sent \| failed \| rejected \| retracted \| adjusted \| skipped |
 | skipped_reason | nullable — e.g. "no GCLID" (Google Ads) or "no GA4 client id" (FR-026) |
 | attempt_count | |

@@ -21,7 +21,7 @@
 
 ## Requirement Consistency
 
-- [ ] CHK007 Where a website's raw markup does not natively display any number matching the configured default — i.e., replacement is normally what puts a number on the page at all — does FR-039's "the website's configured default number MUST remain displayed" require the client to actively write the default number in pre-consent, or perform no DOM change at all? [Conflict, Spec §FR-008, FR-011, FR-039]
+- [x] CHK007 Where a website's raw markup does not natively display any number matching the configured default — i.e., replacement is normally what puts a number on the page at all — does FR-039's "the website's configured default number MUST remain displayed" require the client to actively write the default number in pre-consent, or perform no DOM change at all? [Conflict, Spec §FR-008, FR-011, FR-039] — Resolved via clarification 2026-08-10: script actively writes the default number in pre-consent, same replacement mechanism as post-consent.
 - [ ] CHK008 Is a grace period or retry allowance specified for a heartbeat delivery failure (a network blip) that is distinct from genuine visitor inactivity, so a session doesn't end early purely from one missed heartbeat? [Gap, Spec §FR-012]
 
 ## Acceptance Criteria Quality

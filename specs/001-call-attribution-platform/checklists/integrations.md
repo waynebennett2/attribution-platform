@@ -22,7 +22,7 @@
 ## Requirement Consistency
 
 - [ ] CHK007 Does the Edge Cases bullet on an aged or rejected Google click identifier cross-reference the general permanent-rejection handling already defined in User Story 5's acceptance scenarios, or does it read as a separate, unaddressed case? [Traceability, Spec Edge Cases §Qualification and publication, User Story 5 Scenario 5]
-- [ ] CHK008 Does FR-027's "no qualified call ever produces more than one conversion... regardless of retries" specify whether the idempotency key is scoped per lifetime-of-the-call or per publish-episode, given FR-044 allows a call to be retracted and potentially re-qualified later? [Ambiguity, Spec §FR-027, FR-044]
+- [x] CHK008 Does FR-027's "no qualified call ever produces more than one conversion... regardless of retries" specify whether the idempotency key is scoped per lifetime-of-the-call or per publish-episode, given FR-044 allows a call to be retracted and potentially re-qualified later? [Ambiguity, Spec §FR-027, FR-044] — Resolved via clarification 2026-08-10: scoped per publish episode; a genuine retract-then-requalify gets a new key.
 
 ## Acceptance Criteria Quality
 
