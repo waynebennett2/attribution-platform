@@ -1,7 +1,10 @@
 using Attribution.Api.Middleware;
 using Attribution.Application.Administration;
+using Attribution.Application.Allocation;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Identity;
+using Attribution.Domain.Pools;
+using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
 using Attribution.Infrastructure.Data;
 using Attribution.Infrastructure.Identity;
@@ -30,6 +33,13 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IWebsiteRepository, WebsiteRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<INumberPoolRepository, NumberPoolRepository>();
+builder.Services.AddScoped<ITrackingNumberRepository, TrackingNumberRepository>();
+builder.Services.AddScoped<IVisitorRepository, VisitorRepository>();
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
+builder.Services.AddScoped<IAllocationRepository, AllocationRepository>();
+builder.Services.AddScoped<IAtomicAllocator, AtomicAllocator>();
+builder.Services.AddScoped<AllocationService>();
 
 // --- Audit logging (T017, T018) ---
 builder.Services.AddHttpContextAccessor();
