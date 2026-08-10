@@ -84,38 +84,38 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Tests for User Story 1
 
-- [ ] T023 [P] [US1] Unit tests for atomic number allocation (`FOR UPDATE SKIP LOCKED` dequeue, no double-allocation) in `tests/Attribution.UnitTests/Allocation/AllocationServiceTests.cs`
-- [ ] T024 [P] [US1] Unit tests for session timeout/heartbeat expiry logic in `tests/Attribution.UnitTests/Sessions/SessionServiceTests.cs`
-- [ ] T025 [P] [US1] Integration test for `POST /v1/dni/allocate` against a MySQL Testcontainer, including pool-exhausted fallback (FR-011) in `tests/Attribution.IntegrationTests/Dni/AllocateEndpointTests.cs`
-- [ ] T026 [P] [US1] Contract test validating request/response shapes against `contracts/dni-api.md` in `tests/Attribution.Contract/DniApiContractTests.cs`
-- [ ] T027 [P] [US1] Playwright test: number replacement (displayed text + click-to-call targets) on a multi-page site in `client/dni-script/tests/replacement.spec.ts`
-- [ ] T028 [P] [US1] Playwright test: SPA in-app route change and post-load DOM mutation replacement in `client/dni-script/tests/spa-replacement.spec.ts`
-- [ ] T029 [P] [US1] Playwright test: session stickiness across concurrent tabs in `client/dni-script/tests/multi-tab.spec.ts`
-- [ ] T030 [P] [US1] Playwright test: consent gating, grant-after-refusal, withdrawal, and the active pre-consent default-number DOM write in `client/dni-script/tests/consent.spec.ts`
-- [ ] T031 [P] [US1] Playwright test: script-blocked fallback leaves the static default number in place in `client/dni-script/tests/fallback.spec.ts`
+- [X] T023 [P] [US1] Unit tests for atomic number allocation (`FOR UPDATE SKIP LOCKED` dequeue, no double-allocation) in `tests/Attribution.UnitTests/Allocation/AllocationServiceTests.cs`
+- [X] T024 [P] [US1] Unit tests for session timeout/heartbeat expiry logic in `tests/Attribution.UnitTests/Sessions/SessionServiceTests.cs`
+- [X] T025 [P] [US1] Integration test for `POST /v1/dni/allocate` against a MySQL Testcontainer, including pool-exhausted fallback (FR-011) in `tests/Attribution.IntegrationTests/Dni/AllocateEndpointTests.cs`
+- [X] T026 [P] [US1] Contract test validating request/response shapes against `contracts/dni-api.md` in `tests/Attribution.Contract/DniApiContractTests.cs`
+- [X] T027 [P] [US1] Playwright test: number replacement (displayed text + click-to-call targets) on a multi-page site in `client/dni-script/tests/replacement.spec.ts`
+- [X] T028 [P] [US1] Playwright test: SPA in-app route change and post-load DOM mutation replacement in `client/dni-script/tests/spa-replacement.spec.ts`
+- [X] T029 [P] [US1] Playwright test: session stickiness across concurrent tabs in `client/dni-script/tests/multi-tab.spec.ts`
+- [X] T030 [P] [US1] Playwright test: consent gating, grant-after-refusal, withdrawal, and the active pre-consent default-number DOM write in `client/dni-script/tests/consent.spec.ts`
+- [X] T031 [P] [US1] Playwright test: script-blocked fallback leaves the static default number in place in `client/dni-script/tests/fallback.spec.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T032 [P] [US1] Implement Number Pool and Tracking Number domain entities and repositories (exactly-one-pool-at-a-time move semantics, FR-004) in `src/Attribution.Domain/Pools/`, `src/Attribution.Infrastructure/Data/` (depends on T012)
-- [ ] T033 [P] [US1] Implement Visitor and Session domain entities and repositories in `src/Attribution.Domain/Sessions/`, `src/Attribution.Infrastructure/Data/` (depends on T012)
-- [ ] T034 [US1] Implement the Allocation domain entity and the atomic `FOR UPDATE SKIP LOCKED` allocation repository query in `src/Attribution.Domain/Sessions/Allocation.cs`, `src/Attribution.Infrastructure/Data/AllocationRepository.cs` per research.md §2, FR-003 (depends on T032, T033)
-- [ ] T035 [US1] Implement `AllocationService` (allocate, heartbeat, release, suspended-number-in-progress exception FR-005, consent-withdrawal immediate release FR-018/FR-039) in `src/Attribution.Application/Allocation/AllocationService.cs` per FR-006, FR-007, FR-010, FR-012 (depends on T034)
-- [ ] T036 [US1] Implement `POST /v1/dni/allocate`, `/heartbeat`, `/consent` in `src/Attribution.Api/Controllers/DniController.cs` per contracts/dni-api.md (depends on T035)
-- [ ] T037 [P] [US1] Implement number pool CRUD and bulk CSV import endpoints (per-row accept/reject reasons, FR-002) in `src/Attribution.Api/Controllers/AdminPoolsController.cs` per contracts/admin-api.md, FR-001, FR-004, FR-005 (depends on T032)
-- [ ] T038 [P] [US1] Implement the DNI client's allocation and heartbeat calls, with quick-backoff retry on a failed heartbeat before its next scheduled interval, in `client/dni-script/src/allocation.js` per contracts/dni-api.md, FR-012
-- [ ] T039 [P] [US1] Implement the DNI client's DOM replacement — digit-normalized text matching, `tel:` links and configurable marker-attribute click-to-call targets, MutationObserver for post-load numbers, main-document scope only (no iframe/shadow-DOM traversal) — in `client/dni-script/src/replace.js` per FR-008, FR-009, FR-011
-- [ ] T040 [P] [US1] Implement the DNI client's consent contract (read `window.__attributionConsent`, subscribe to `attribution:consent-change`, trigger active default-number write pre-consent) in `client/dni-script/src/consent.js` per contracts/consent-contract.md, FR-039
-- [ ] T041 [US1] Wire landing page/referrer/UTM/GCLID/GBRAID/WBRAID/GA4-client-id capture, with degraded-provenance handling for late consent, into session creation in `src/Attribution.Application/Allocation/AllocationService.cs` per FR-013, FR-014, FR-015 (depends on T035)
+- [X] T032 [P] [US1] Implement Number Pool and Tracking Number domain entities and repositories (exactly-one-pool-at-a-time move semantics, FR-004) in `src/Attribution.Domain/Pools/`, `src/Attribution.Infrastructure/Data/` (depends on T012)
+- [X] T033 [P] [US1] Implement Visitor and Session domain entities and repositories in `src/Attribution.Domain/Sessions/`, `src/Attribution.Infrastructure/Data/` (depends on T012)
+- [X] T034 [US1] Implement the Allocation domain entity and the atomic `FOR UPDATE SKIP LOCKED` allocation repository query in `src/Attribution.Domain/Sessions/Allocation.cs`, `src/Attribution.Infrastructure/Data/AllocationRepository.cs` per research.md §2, FR-003 (depends on T032, T033)
+- [X] T035 [US1] Implement `AllocationService` (allocate, heartbeat, release, suspended-number-in-progress exception FR-005, consent-withdrawal immediate release FR-018/FR-039) in `src/Attribution.Application/Allocation/AllocationService.cs` per FR-006, FR-007, FR-010, FR-012 (depends on T034)
+- [X] T036 [US1] Implement `POST /v1/dni/allocate`, `/heartbeat`, `/consent` in `src/Attribution.Api/Controllers/DniController.cs` per contracts/dni-api.md (depends on T035)
+- [X] T037 [P] [US1] Implement number pool CRUD and bulk CSV import endpoints (per-row accept/reject reasons, FR-002) in `src/Attribution.Api/Controllers/AdminPoolsController.cs` per contracts/admin-api.md, FR-001, FR-004, FR-005 (depends on T032)
+- [X] T038 [P] [US1] Implement the DNI client's allocation and heartbeat calls, with quick-backoff retry on a failed heartbeat before its next scheduled interval, in `client/dni-script/src/allocation.js` per contracts/dni-api.md, FR-012
+- [X] T039 [P] [US1] Implement the DNI client's DOM replacement — digit-normalized text matching, `tel:` links and configurable marker-attribute click-to-call targets, MutationObserver for post-load numbers, main-document scope only (no iframe/shadow-DOM traversal) — in `client/dni-script/src/replace.js` per FR-008, FR-009, FR-011
+- [X] T040 [P] [US1] Implement the DNI client's consent contract (read `window.__attributionConsent`, subscribe to `attribution:consent-change`, trigger active default-number write pre-consent) in `client/dni-script/src/consent.js` per contracts/consent-contract.md, FR-039
+- [X] T041 [US1] Wire landing page/referrer/UTM/GCLID/GBRAID/WBRAID/GA4-client-id capture, with degraded-provenance handling for late consent, into session creation in `src/Attribution.Application/Allocation/AllocationService.cs` per FR-013, FR-014, FR-015 (depends on T035)
 
 ### Optional Shadow Mode for User Story 1 (FR-049)
 
 > Numbered T113–T118, continuing the sequence. FR-049's shadow mode had no task coverage until this remediation; it supports the optional, later, report-level comparison against Mediahawk described in spec.md's Assumptions — never a live integration.
 
-- [ ] T113 [P] [US1] Unit tests for shadow-mode allocation recording and overlapping-observed-window ambiguity tolerance, distinguished from ordinary-operation ambiguity, in `tests/Attribution.UnitTests/Allocation/ShadowModeTests.cs` per FR-049
-- [ ] T114 [P] [US1] Playwright test: shadow mode leaves the page's displayed numbers untouched while still recording the observed number in `client/dni-script/tests/shadow-mode.spec.ts` per FR-049
-- [ ] T115 [US1] Implement shadow-mode allocation recording (observe the displayed number, hold an allocation window without allocating, tolerate overlapping windows as ambiguous) in `src/Attribution.Application/Allocation/ShadowAllocationService.cs` per FR-049 (depends on T034, T051)
-- [ ] T116 [US1] Implement the per-website shadow-mode toggle endpoint (configuration only, no code change) in `src/Attribution.Api/Controllers/AdminWebsitesController.cs` per FR-049 (depends on T012)
-- [ ] T117 [P] [US1] Implement the DNI client's observe-only shadow mode (reads the displayed number, does not replace it, reports it via `POST /v1/dni/shadow-observe`) in `client/dni-script/src/shadow.js` per FR-049, contracts/dni-api.md (depends on T038)
+- [X] T113 [P] [US1] Unit tests for shadow-mode allocation recording and overlapping-observed-window ambiguity tolerance, distinguished from ordinary-operation ambiguity, in `tests/Attribution.UnitTests/Allocation/ShadowModeTests.cs` per FR-049
+- [X] T114 [P] [US1] Playwright test: shadow mode leaves the page's displayed numbers untouched while still recording the observed number in `client/dni-script/tests/shadow-mode.spec.ts` per FR-049
+- [X] T115 [US1] Implement shadow-mode allocation recording (observe the displayed number, hold an allocation window without allocating, tolerate overlapping windows as ambiguous) in `src/Attribution.Application/Allocation/ShadowAllocationService.cs` per FR-049 (depends on T034, T051)
+- [X] T116 [US1] Implement the per-website shadow-mode toggle endpoint (configuration only, no code change) in `src/Attribution.Api/Controllers/AdminWebsitesController.cs` per FR-049 (depends on T012)
+- [X] T117 [P] [US1] Implement the DNI client's observe-only shadow mode (reads the displayed number, does not replace it, reports it via `POST /v1/dni/shadow-observe`) in `client/dni-script/src/shadow.js` per FR-049, contracts/dni-api.md (depends on T038)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable.
 

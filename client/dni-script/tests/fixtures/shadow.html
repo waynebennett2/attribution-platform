@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Shadow mode fixture</title>
+  </head>
+  <body>
+    <!-- Represents a number another system (e.g. Mediahawk) has already inserted. -->
+    <a id="other-system-number" href="tel:5559998888">555-999-8888</a>
+
+    <script type="module">
+      import { reportShadowObservation } from "/src/shadow.js";
+      window.__shadowResult = reportShadowObservation({
+        apiBaseUrl: "http://localhost:9999",
+        websiteId: "33333333-3333-3333-3333-333333333333",
+        sessionId: null,
+        arrival: { landingPage: window.location.href, referrer: null, utm: {} },
+      });
+    </script>
+  </body>
+</html>

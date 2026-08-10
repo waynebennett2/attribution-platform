@@ -25,9 +25,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # Playwright
-/test-results/
-/playwright-report/
-/playwright/.cache/
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Environment / secrets
 .env

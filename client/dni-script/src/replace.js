@@ -97,12 +97,28 @@ function walkTextNodes(root, callback) {
 }
 
 export function createReplacer({ configuredNumbers }) {
-  const patterns = configuredNumbers.map(buildMatchPattern).filter(Boolean);
-  const configuredDigitSets = new Set(configuredNumbers.map(toDigits).filter((d) => d.length > 0));
+  // apply() is called repeatedly over a page view's lifetime with different numbers
+  // (default, then allocated, then default again on withdrawal). Each call must be able
+  // to replace whatever is CURRENTLY on the page, which after the first call is no
+  // longer the originally configured number — it's whatever apply() wrote last time. So
+  // match patterns are rebuilt from configuredNumbers plus the last-applied number, not
+  // configuredNumbers alone.
+  let lastAppliedNumber = null;
+
+  function currentMatchTargets() {
+    const numbers = lastAppliedNumber
+      ? [...configuredNumbers, lastAppliedNumber]
+      : configuredNumbers;
+    return {
+      patterns: numbers.map(buildMatchPattern).filter(Boolean),
+      digitSets: new Set(numbers.map(toDigits).filter((d) => d.length > 0)),
+    };
+  }
 
   function replaceAll(root, number) {
+    const { patterns, digitSets } = currentMatchTargets();
     walkTextNodes(root, (node) => replaceInTextNode(node, patterns, number));
-    replaceTelLinks(root, configuredDigitSets, number);
+    replaceTelLinks(root, digitSets, number);
     replaceMarkedElements(root, number);
   }
 
@@ -110,6 +126,7 @@ export function createReplacer({ configuredNumbers }) {
     // Main document (light DOM) only — iframes and shadow DOM subtrees are out of scope
     // for this version (typically third-party embeds outside the site owner's control).
     replaceAll(document.body, number);
+    lastAppliedNumber = number;
   }
 
   // getCurrentNumber is a function, not a fixed value: whichever number is currently

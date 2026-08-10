@@ -6,6 +6,7 @@
 import { createAllocationClient } from "./allocation.js";
 import { createReplacer } from "./replace.js";
 import { readInitialConsent, subscribeToConsentChanges } from "./consent.js";
+import { loadSession, saveSession, clearSession } from "./sessionStore.js";
 
 function captureArrivalDetails() {
   const params = new URLSearchParams(window.location.search);
@@ -49,6 +50,7 @@ export function initAttribution(config) {
   function showDefault() {
     // FR-008, FR-039: pre-consent replacement actively writes the default number in,
     // rather than depending on whatever the page's own static markup contains.
+    sessionId = null;
     currentNumber = defaultNumber;
     replacer.apply(currentNumber);
   }
@@ -67,8 +69,16 @@ export function initAttribution(config) {
         const result = await allocationClient.heartbeatWithRetry(sessionId);
         if (!result.still_valid) {
           stopHeartbeat();
-          sessionId = null;
+          clearSession(websiteId);
           showDefault();
+        } else {
+          // Keep the stored expiry roughly in step with the server's, so a later full-page
+          // navigation still recognizes this session as current rather than as expired.
+          saveSession(websiteId, {
+            sessionId,
+            number: currentNumber,
+            expiresAt: new Date(Date.now() + heartbeatIntervalMs * 6).toISOString(),
+          });
         }
       } catch {
         // FR-012: the client already retried internally; a persistent failure here just
@@ -77,16 +87,21 @@ export function initAttribution(config) {
     }, heartbeatIntervalMs);
   }
 
+  function adopt(newSessionId, number, expiresAt) {
+    sessionId = newSessionId;
+    currentNumber = number;
+    replacer.apply(currentNumber);
+    saveSession(websiteId, { sessionId, number, expiresAt });
+    startHeartbeat();
+  }
+
   async function grantConsent() {
     const result = await allocationClient.allocate({
       consentGranted: true,
       arrival: arrivalAtLoad,
     });
     if (result.session_id) {
-      sessionId = result.session_id;
-      currentNumber = result.number;
-      replacer.apply(currentNumber);
-      startHeartbeat();
+      adopt(result.session_id, result.number, result.expires_at);
     } else {
       showDefault();
     }
@@ -96,14 +111,19 @@ export function initAttribution(config) {
     stopHeartbeat();
     if (sessionId) {
       await allocationClient.reportConsent({ sessionId, consent: "withdrawn" });
-      sessionId = null;
     }
+    clearSession(websiteId);
     showDefault();
   }
 
-  // Initial state, per FR-039.
-  if (readInitialConsent()) {
-    grantConsent();
+  // FR-010: a full page navigation re-runs this module from scratch — recover an
+  // already-active session from localStorage (shared across tabs, per the "same visitor,
+  // several concurrent tabs" edge case) rather than allocating a fresh one on every page.
+  const existing = loadSession(websiteId);
+  if (existing) {
+    adopt(existing.sessionId, existing.number, existing.expiresAt);
+  } else if (readInitialConsent()) {
+    grantConsent(); // FR-039
   } else {
     showDefault();
   }

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Multi-tab fixture</title>
+  </head>
+  <body>
+    <p id="text-1">Call us on 555-123-4567 today.</p>
+    <script>
+      window.__attributionConfig = {
+        apiBaseUrl: "http://localhost:9999",
+        websiteId: "22222222-2222-2222-2222-222222222222",
+        defaultNumber: "555-000-0000",
+        configuredNumbers: ["555-123-4567"],
+        heartbeatIntervalMs: 300000,
+      };
+      window.__attributionConsent = { granted: true };
+    </script>
+    <script type="module" src="/src/index.js"></script>
+  </body>
+</html>

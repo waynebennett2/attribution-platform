@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Consent fixture</title>
+  </head>
+  <body>
+    <p id="text-1">Call us on 555-123-4567 today.</p>
+
+    <script>
+      window.__attributionConfig = {
+        apiBaseUrl: "http://localhost:9999",
+        websiteId: "11111111-1111-1111-1111-111111111111",
+        defaultNumber: "555-000-0000", // deliberately different from the page's static text,
+        configuredNumbers: ["555-123-4567"], // so the pre-consent active write is observable
+        heartbeatIntervalMs: 300000,
+      };
+      // No window.__attributionConsent set — consent starts Pending (FR-039).
+
+      window.grantConsentForTest = () => {
+        window.__attributionConsent = { granted: true };
+        window.dispatchEvent(new CustomEvent("attribution:consent-change", { detail: { granted: true } }));
+      };
+      window.withdrawConsentForTest = () => {
+        window.__attributionConsent = { granted: false };
+        window.dispatchEvent(new CustomEvent("attribution:consent-change", { detail: { granted: false } }));
+      };
+    </script>
+    <script type="module" src="/src/index.js"></script>
+  </body>
+</html>

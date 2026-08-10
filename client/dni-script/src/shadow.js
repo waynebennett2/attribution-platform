@@ -6,8 +6,7 @@ function toDigits(text) {
   return (text.match(/\d/g) || []).join("");
 }
 
-function findObservedNumber(configuredNumbers) {
-  const configuredDigitSets = new Set(configuredNumbers.map(toDigits).filter((d) => d.length > 0));
+function findObservedNumber() {
   const telLink = Array.from(document.querySelectorAll('a[href^="tel:"]')).find((anchor) => {
     const hrefDigits = toDigits(anchor.getAttribute("href") || "");
     // Shadow mode observes whichever number is currently on the page — it doesn't need to
@@ -17,8 +16,8 @@ function findObservedNumber(configuredNumbers) {
   return telLink ? toDigits(telLink.getAttribute("href")) : null;
 }
 
-export async function reportShadowObservation({ apiBaseUrl, websiteId, sessionId, arrival, configuredNumbers = [] }) {
-  const observedNumber = findObservedNumber(configuredNumbers);
+export async function reportShadowObservation({ apiBaseUrl, websiteId, sessionId, arrival }) {
+  const observedNumber = findObservedNumber();
   if (!observedNumber) {
     return null;
   }
