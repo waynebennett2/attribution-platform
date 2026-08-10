@@ -7,6 +7,7 @@ using Attribution.Domain.Pools;
 using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
 using Attribution.Infrastructure.Data;
+using Attribution.Infrastructure.Data.Migrations;
 using Attribution.Infrastructure.Identity;
 using Attribution.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -86,6 +87,18 @@ builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
+
+// Convenience for local/dev use (and anyone testing this build without a separate
+// deploy-time migration step): apply pending migrations on startup. FluentMigrator
+// tracks applied versions itself, so this is a safe no-op on an already-current schema.
+// Off by default outside Development — a real deployment should run migrations as an
+// explicit step, not implicitly on every instance's startup.
+var runMigrationsOnStartup = builder.Configuration.GetValue(
+    "Migrations:RunOnStartup", defaultValue: app.Environment.IsDevelopment());
+if (runMigrationsOnStartup)
+{
+    MigrationRunner.ApplyMigrations(connectionString);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
