@@ -1,8 +1,8 @@
 # 8x8 Call Attribution Platform — Constitution
 
-**Version:** 1.1.0
+**Version:** 1.1.1
 **Ratified:** 2026-08-05
-**Last Amended:** 2026-08-06
+**Last Amended:** 2026-08-10
 
 ## Preamble
 
@@ -31,7 +31,7 @@ All business logic — number allocation, session matching, attribution, qualifi
 All endpoints require TLS. All API access is authenticated via JWT (user-facing) or API keys (system-to-system, e.g. Integration Service role). Authorization is enforced via RBAC mapped to the defined roles (System Administrator, Marketing Administrator, Analyst, Integration Service). Secrets and credentials are never stored in source control or logs. *(Rationale: NFR Security; FR-032 user/role management.)*
 
 ### VII. Observable by Design
-Every service emits structured logs, health checks, and metrics (ingestion lag, allocation failures, attribution match rate, API latency). Structured logging must allow tracing a single call from DNI allocation through attribution to Google Ads/GA4 publication. *(Rationale: NFR Monitoring; supports the 95%+ attribution accuracy acceptance criterion and operational troubleshooting.)*
+Every service emits structured logs, health checks, and metrics (ingestion lag, allocation failures, attribution match rate, API latency). Structured logging must allow tracing a single call from DNI allocation through attribution to Google Ads/GA4 publication. *(Rationale: NFR Monitoring; supports the SC-001/SC-018 attribution-accuracy acceptance criteria and operational troubleshooting.)*
 
 ### VIII. Configuration Over Hardcoding
 Qualification rules, number pool assignment (by website/campaign/business unit), session timeout/heartbeat, and retention periods are configurable and versioned — not hardcoded. Rule changes do not retroactively alter historical attribution decisions. *(Rationale: FR-004, FR-012, FR-023, FR-024.)*
@@ -55,7 +55,7 @@ Qualification rules, number pool assignment (by website/campaign/business unit),
 |---|---|
 | Availability | 99.9% |
 | DNI allocation performance | 95% of requests under 300ms |
-| Attribution accuracy | ≥95% of eligible calls correctly attributed during parallel run |
+| Attribution accuracy | 100% on seeded/controlled calls (SC-001); ≥95% of live calls reach an attributed state over a 4-week/500-call window (SC-018) |
 | Duplicate attribution | Zero tolerance |
 | Scalability | API and worker services scale horizontally (stateless where possible) |
 | Compliance | Consent-aware data capture; configurable data retention |
@@ -79,6 +79,16 @@ Qualification rules, number pool assignment (by website/campaign/business unit),
 - Reviewers are expected to flag any deviation from Principles I, IV, V, or VI explicitly — these four are treated as non-negotiable given the accuracy, audit, and security requirements of a commercial attribution platform.
 
 ## Amendment History
+
+### 1.1.1 — 2026-08-10 (PATCH)
+
+**Change.** Corrected the Non-Functional Targets table and Principle VII's rationale, which still cited "≥95% during parallel run" as the attribution-accuracy acceptance bar. That bar was superseded by feature 001's 2026-08-09 clarification session: the parallel run against Mediahawk is no longer the launch gate. Acceptance now rests on SC-001 (100%, controlled test) and SC-018 (≥95% live coverage), with the parallel run available only as an optional later exercise under FR-049.
+
+**Rationale.** `/speckit-analyze` on feature 001 flagged the constitution as internally out of sync with its own governed spec — a documentation drift, not a principle change, since Principle I (deterministic attribution) is untouched.
+
+**Approval.** Pending project owner sign-off.
+
+**Migration note.** No spec, plan, or task changes required; spec.md already reflects the corrected criteria.
 
 ### 1.1.0 — 2026-08-06 (MINOR)
 

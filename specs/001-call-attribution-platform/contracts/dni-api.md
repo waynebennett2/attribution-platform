@@ -63,3 +63,25 @@ Reports a consent state change occurring after `/allocate` (grant after initial 
 **Response 200**
 - On `granted` with no prior session: same shape as `/allocate`'s success response — creates the session and allocates from this point (FR-039).
 - On `withdrawn`: `{ "number": "<default_number>" }` — ends the session, releases the allocation (FR-039); data already captured stays subject to FR-040 retention.
+
+## POST /v1/dni/shadow-observe
+
+Optional, per-website (FR-049). Called instead of `/allocate` when shadow mode is enabled for the website: the script observes whatever number another system (e.g. Mediahawk) already displayed and reports it, without the platform replacing anything on the page.
+
+**Request**
+```json
+{
+  "website_id": "string",
+  "session_id": "string",
+  "observed_number": "string",
+  "landing_page": "string", "referrer": "string",
+  "utm": { "source": "string", "medium": "string", "campaign": "string", "term": "string", "content": "string" },
+  "gclid": "string?", "gbraid": "string?", "wbraid": "string?", "ga4_client_id": "string?"
+}
+```
+
+**Response 200**
+```json
+{ "recorded": true }
+```
+Creates a shadow-flagged Allocation (data-model.md's `Allocation.is_shadow`) for the observed number and window, without allocating a number from the platform's own pool. Overlapping observed windows are tolerated and later classified as ambiguous under FR-021, reported separately from ordinary-operation ambiguity (FR-049). No number is ever returned in the response — the page's own markup, or whatever the other system displayed, is left untouched.

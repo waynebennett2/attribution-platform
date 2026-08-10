@@ -45,6 +45,18 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
+### Tests for Foundational
+
+> Numbered T108–T112 (continuing the sequence rather than renumbering T012 onward) but ordered here because Constitution Principle V (NON-NEGOTIABLE) requires these tests before the Domain/Application logic they cover (T013–T019).
+
+- [ ] T108 [P] Unit tests for RBAC role-permission decision logic (FR-038) in `tests/Attribution.UnitTests/Identity/RbacDecisionTests.cs`
+- [ ] T109 [P] Unit tests for JWT validation, 5-minute expiry and silent-refresh logic (FR-046) in `tests/Attribution.UnitTests/Identity/JwtValidationTests.cs`
+- [ ] T110 [P] Unit tests for the audit-entry append-only invariant — write succeeds, update/delete attempts rejected and recorded (FR-035) — in `tests/Attribution.UnitTests/Audit/AuditImmutabilityTests.cs`
+- [ ] T111 [P] Unit tests for rate-limit policy evaluation (600/min per origin, 10/min per client, FR-037) in `tests/Attribution.UnitTests/RateLimiting/RateLimitPolicyTests.cs`
+- [ ] T112 [P] Unit tests for User/Role domain rules — role assignment, override recording (FR-032, FR-046) — in `tests/Attribution.UnitTests/Identity/UserRoleTests.cs`
+
+### Implementation for Foundational
+
 - [ ] T009 Configure the FluentMigrator runner project and migration-execution entry point in `src/Attribution.Infrastructure/Data/Migrations/` per research.md §13
 - [ ] T010 Author the baseline schema migration covering every entity in data-model.md (Website, Number Pool, Tracking Number, Allocation, Visitor, Session, Call, Call Leg, Attribution, Qualification Rule, Qualification Result, Conversion Publication, Ingestion Checkpoint, User, Alert, Audit Entry, Review Case) in `src/Attribution.Infrastructure/Data/Migrations/` (depends on T009)
 - [ ] T011 [P] Implement the Dapper connection-factory and base repository pattern in `src/Attribution.Infrastructure/Data/` (depends on T009)
@@ -94,6 +106,16 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 - [ ] T039 [P] [US1] Implement the DNI client's DOM replacement (MutationObserver for post-load numbers, click-to-call targets) in `client/dni-script/src/replace.js` per FR-008, FR-009, FR-011
 - [ ] T040 [P] [US1] Implement the DNI client's consent contract (read `window.__attributionConsent`, subscribe to `attribution:consent-change`, trigger active default-number write pre-consent) in `client/dni-script/src/consent.js` per contracts/consent-contract.md, FR-039
 - [ ] T041 [US1] Wire landing page/referrer/UTM/GCLID/GBRAID/WBRAID/GA4-client-id capture, with degraded-provenance handling for late consent, into session creation in `src/Attribution.Application/Allocation/AllocationService.cs` per FR-013, FR-014, FR-015 (depends on T035)
+
+### Optional Shadow Mode for User Story 1 (FR-049)
+
+> Numbered T113–T118, continuing the sequence. FR-049's shadow mode had no task coverage until this remediation; it supports the optional, later, report-level comparison against Mediahawk described in spec.md's Assumptions — never a live integration.
+
+- [ ] T113 [P] [US1] Unit tests for shadow-mode allocation recording and overlapping-observed-window ambiguity tolerance, distinguished from ordinary-operation ambiguity, in `tests/Attribution.UnitTests/Allocation/ShadowModeTests.cs` per FR-049
+- [ ] T114 [P] [US1] Playwright test: shadow mode leaves the page's displayed numbers untouched while still recording the observed number in `client/dni-script/tests/shadow-mode.spec.ts` per FR-049
+- [ ] T115 [US1] Implement shadow-mode allocation recording (observe the displayed number, hold an allocation window without allocating, tolerate overlapping windows as ambiguous) in `src/Attribution.Application/Allocation/ShadowAllocationService.cs` per FR-049 (depends on T034, T051)
+- [ ] T116 [US1] Implement the per-website shadow-mode toggle endpoint (configuration only, no code change) in `src/Attribution.Api/Controllers/AdminWebsitesController.cs` per FR-049 (depends on T012)
+- [ ] T117 [P] [US1] Implement the DNI client's observe-only shadow mode (reads the displayed number, does not replace it, reports it via `POST /v1/dni/shadow-observe`) in `client/dni-script/src/shadow.js` per FR-049, contracts/dni-api.md (depends on T038)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable.
 
@@ -174,6 +196,7 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 - [ ] T071 [US4] Implement `GET /v1/reports/*` endpoints in `src/Attribution.Api/Controllers/ReportsController.cs` per contracts/reporting-api.md (depends on T070)
 - [ ] T072 [US4] Implement `GET /v1/reports/*/export.csv` endpoints reusing the report query results (FR-030) in `src/Attribution.Api/Controllers/ReportsController.cs` (depends on T071)
 - [ ] T073 [US4] Implement role-based report/export filtering (FR-031) in `src/Attribution.Api/Middleware/` or `ReportingService` (depends on T070, T016)
+- [ ] T118 [US4] Flag shadow-derived attributions and report shadow-mode ambiguity separately from ordinary ambiguity per FR-049 in `src/Attribution.Application/Administration/ReportingService.cs` (depends on T070, T115)
 
 **Checkpoint**: User Stories 1–4 all work independently.
 
@@ -241,13 +264,18 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 **Purpose**: Retention/erasure, documentation, and platform-wide hardening that spans every user story.
 
-- [ ] T100 [P] Implement the `RetentionWorker` loop (14/25-month tiered de-identification via a stable HMAC surrogate, 7-year audit retention, open-review-case exception) in `src/Attribution.Workers/RetentionWorker/` per FR-040, research.md §10
-- [ ] T101 [P] Implement the data-subject erasure request endpoint, completing within the 30-day SC-019 bar in `src/Attribution.Api/Controllers/AdminPrivacyController.cs` per FR-039, SC-019
+- [ ] T122 [P] Integration test: run the retention purge against a seeded historical dataset spanning the 14/25-month thresholds, confirming identifiers are gone and report totals for that period reconcile identically before/after (SC-014) in `tests/Attribution.IntegrationTests/Retention/RetentionIntegrityTests.cs`
+- [ ] T100 [P] Implement the `RetentionWorker` loop (14/25-month tiered de-identification via a stable HMAC surrogate, 7-year audit retention, open-review-case exception) in `src/Attribution.Workers/RetentionWorker/` per FR-040, research.md §10 (depends on T122)
+- [ ] T123 [P] Integration test: submit a seeded erasure request and confirm completion, with the visitor's data gone, within a simulated 30-day window (SC-019) in `tests/Attribution.IntegrationTests/Retention/ErasureSlaTests.cs`
+- [ ] T101 [P] Implement the data-subject erasure request endpoint, completing within the 30-day SC-019 bar in `src/Attribution.Api/Controllers/AdminPrivacyController.cs` per FR-039, SC-019 (depends on T123)
 - [ ] T102 [P] Generate and publish OpenAPI documentation for every versioned endpoint per Constitution Principle III
 - [ ] T103 [P] Propagate a correlation ID through structured logs end-to-end (allocation → attribution → qualification → publication) per FR-041
 - [ ] T104 Run every quickstart.md validation scenario end-to-end against a seeded environment
 - [ ] T105 [P] Security hardening pass: TLS enforcement, secret-scanning, dependency audit per Constitution Principle VI
 - [ ] T106 [P] Performance/load test: DNI allocation at SC-004's peak (≈7 allocations/min + ≈50 heartbeats/min, 300ms p95) in `tests/Attribution.IntegrationTests/Performance/AllocationLoadTests.cs`
+- [ ] T119 [P] Document and provision a multi-instance deployment topology (N API + N worker instances behind a load balancer, health-check-based instance removal) in `docker-compose.yml` / deployment docs per FR-043
+- [ ] T120 Integration test: rerun SC-004's load test against 2+ concurrently running API instances with no shared in-process state, confirming identical latency/correctness in `tests/Attribution.IntegrationTests/Performance/HorizontalScaleTest.cs` per FR-043, SC-005 (depends on T119, T106)
+- [ ] T121 Failover test: terminate one API instance mid-load and confirm zero failed allocation requests per SC-005 (depends on T119)
 - [ ] T107 Reconcile plan.md/data-model.md/contracts/ against any drift discovered during implementation
 
 ---
