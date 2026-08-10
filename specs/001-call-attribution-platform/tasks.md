@@ -49,11 +49,11 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 > Numbered T108–T112 (continuing the sequence rather than renumbering T012 onward) but ordered here because Constitution Principle V (NON-NEGOTIABLE) requires these tests before the Domain/Application logic they cover (T013–T019).
 
-- [ ] T108 [P] Unit tests for RBAC role-permission decision logic (FR-038) in `tests/Attribution.UnitTests/Identity/RbacDecisionTests.cs`
-- [ ] T109 [P] Unit tests for JWT validation, 5-minute expiry and silent-refresh logic (FR-046) in `tests/Attribution.UnitTests/Identity/JwtValidationTests.cs`
-- [ ] T110 [P] Unit tests for the audit-entry append-only invariant — write succeeds, update/delete attempts rejected and recorded (FR-035) — in `tests/Attribution.UnitTests/Audit/AuditImmutabilityTests.cs`
-- [ ] T111 [P] Unit tests for rate-limit policy evaluation (600/min per origin, 10/min per client, FR-037) in `tests/Attribution.UnitTests/RateLimiting/RateLimitPolicyTests.cs`
-- [ ] T112 [P] Unit tests for User/Role domain rules — role assignment, override recording (FR-032, FR-046) — in `tests/Attribution.UnitTests/Identity/UserRoleTests.cs`
+- [X] T108 [P] Unit tests for RBAC role-permission decision logic (FR-038) in `tests/Attribution.UnitTests/Identity/RbacDecisionTests.cs`
+- [X] T109 [P] Unit tests for JWT validation, 5-minute expiry and silent-refresh logic (FR-046) in `tests/Attribution.UnitTests/Identity/JwtValidationTests.cs`
+- [X] T110 [P] Unit tests for the audit-entry append-only invariant — write succeeds, update/delete attempts rejected and recorded (FR-035) — in `tests/Attribution.UnitTests/Audit/AuditImmutabilityTests.cs`
+- [X] T111 [P] Unit tests for rate-limit policy evaluation (600/min per origin, 10/min per client, FR-037) in `tests/Attribution.UnitTests/RateLimiting/RateLimitPolicyTests.cs`
+- [X] T112 [P] Unit tests for User/Role domain rules — role assignment, override recording (FR-032, FR-046) — in `tests/Attribution.UnitTests/Identity/UserRoleTests.cs`
 
 ### Implementation for Foundational
 
