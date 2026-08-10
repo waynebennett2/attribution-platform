@@ -1,0 +1,21 @@
+using System.Data;
+using MySqlConnector;
+
+namespace Attribution.Infrastructure.Data;
+
+public sealed class MySqlConnectionFactory : IDbConnectionFactory
+{
+    private readonly string _connectionString;
+
+    public MySqlConnectionFactory(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
+
+    public IDbConnection CreateOpenConnection()
+    {
+        var connection = new MySqlConnection(_connectionString);
+        connection.Open();
+        return connection;
+    }
+}
