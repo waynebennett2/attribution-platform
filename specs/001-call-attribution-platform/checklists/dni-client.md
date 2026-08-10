@@ -9,20 +9,20 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Is the set of DOM locations counted as a "click-to-call target" for FR-008 enumerated — `tel:` links only, or also data-attributes or JS click handlers some sites use for dialing? [Gap, Spec §FR-008]
+- [x] CHK001 Is the set of DOM locations counted as a "click-to-call target" for FR-008 enumerated — `tel:` links only, or also data-attributes or JS click handlers some sites use for dialing? [Gap, Spec §FR-008] — Resolved 2026-08-10: tel: links + configurable marker attribute; onclick handlers out of scope.
 - [ ] CHK002 Is a replacement-latency bound defined for numbers rendered after initial load (FR-009), so a visitor cannot see or click an untracked number before replacement completes? [Gap, Spec §FR-009]
 - [ ] CHK003 Is retry/backoff behavior specified for the DNI client when an allocation request is rejected for rate limiting (FR-037), so repeated page interactions during a rate-limited period don't compound the condition? [Gap, Spec §FR-011, FR-037]
 
 ## Requirement Clarity
 
-- [ ] CHK004 Is "configured phone number occurrence" in FR-008 specified to include multiple textual formatting variants of the same number (spacing, punctuation, international prefix), or only an exact string match? [Ambiguity, Spec §FR-008]
+- [x] CHK004 Is "configured phone number occurrence" in FR-008 specified to include multiple textual formatting variants of the same number (spacing, punctuation, international prefix), or only an exact string match? [Ambiguity, Spec §FR-008] — Resolved 2026-08-10: digit-normalized matching (FR-009).
 - [x] CHK005 Is "malformed" defined for FR-011's "never display a blank, partial or malformed number" — e.g., a tracking number substituted into a site's expected display pattern in a way that breaks that pattern? [Ambiguity, Spec §FR-011] — Resolved 2026-08-10: digit sequence must match exactly; formatting-only differences (spacing, punctuation) don't count as malformed.
 - [ ] CHK006 Is the boundary of "that page view" in FR-014/FR-015's retain-until-consent language precisely defined for a single-page application, where no full page reload marks an obvious end? [Ambiguity, Spec §FR-014, FR-015, FR-009]
 
 ## Requirement Consistency
 
 - [x] CHK007 Where a website's raw markup does not natively display any number matching the configured default — i.e., replacement is normally what puts a number on the page at all — does FR-039's "the website's configured default number MUST remain displayed" require the client to actively write the default number in pre-consent, or perform no DOM change at all? [Conflict, Spec §FR-008, FR-011, FR-039] — Resolved via clarification 2026-08-10: script actively writes the default number in pre-consent, same replacement mechanism as post-consent.
-- [ ] CHK008 Is a grace period or retry allowance specified for a heartbeat delivery failure (a network blip) that is distinct from genuine visitor inactivity, so a session doesn't end early purely from one missed heartbeat? [Gap, Spec §FR-012]
+- [x] CHK008 Is a grace period or retry allowance specified for a heartbeat delivery failure (a network blip) that is distinct from genuine visitor inactivity, so a session doesn't end early purely from one missed heartbeat? [Gap, Spec §FR-012] — Resolved 2026-08-10: client retries with brief backoff within the interval; server-side timeout unchanged.
 
 ## Acceptance Criteria Quality
 
@@ -34,7 +34,7 @@
 
 ## Edge Case Coverage
 
-- [ ] CHK011 Is behavior specified for a phone number appearing inside an iframe or shadow DOM that the DNI client's replacement logic may not traverse by default? [Edge Case, Gap]
+- [x] CHK011 Is behavior specified for a phone number appearing inside an iframe or shadow DOM that the DNI client's replacement logic may not traverse by default? [Edge Case, Gap] — Resolved 2026-08-10: out of scope for v1, main document (light DOM) only.
 - [ ] CHK012 Is behavior specified for a visitor who opens a new tab to the same site mid-session via a link carrying different UTM parameters — does the existing session/number persist, and is the new arrival information captured anywhere? [Edge Case, Gap, Spec §FR-010, FR-014]
 
 ## Dependencies & Assumptions
