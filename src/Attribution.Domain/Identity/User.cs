@@ -18,6 +18,7 @@ public class User
     public bool MfaRequired { get; private set; }
     public bool IsActive { get; private set; } = true;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? LastSeenAt { get; private set; }
 
     // FR-046: an administrator override takes precedence over the provider-mapped role.
     public Role EffectiveRole => RoleOverride ?? MappedRole;
@@ -88,4 +89,35 @@ public class User
     public bool CanSignInInteractively() => IdentityType != IdentityType.IntegrationService;
 
     public void Deactivate() => IsActive = false;
+
+    public void RecordActivity(DateTimeOffset at) => LastSeenAt = at;
+
+    // Infrastructure-only reconstruction from stored state (see AssemblyInfo.cs).
+    internal static User Rehydrate(
+        Guid id,
+        string? subjectRef,
+        string? username,
+        string? clientId,
+        IdentityType identityType,
+        Role mappedRole,
+        Role? roleOverride,
+        string? roleOverriddenBy,
+        bool mfaRequired,
+        bool isActive,
+        DateTimeOffset createdAt,
+        DateTimeOffset? lastSeenAt) => new()
+        {
+            Id = id,
+            SubjectRef = subjectRef,
+            Username = username,
+            ClientId = clientId,
+            IdentityType = identityType,
+            MappedRole = mappedRole,
+            RoleOverride = roleOverride,
+            RoleOverriddenBy = roleOverriddenBy,
+            MfaRequired = mfaRequired,
+            IsActive = isActive,
+            CreatedAt = createdAt,
+            LastSeenAt = lastSeenAt,
+        };
 }

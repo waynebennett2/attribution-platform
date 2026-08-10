@@ -49,4 +49,26 @@ public class AuditEntry
             AfterValue = afterValue ?? string.Empty,
         };
     }
+
+    // Infrastructure-only reconstruction from stored state (see AssemblyInfo.cs). Note this
+    // is still not a mutation path — it produces a new instance, never edits a stored one.
+    internal static AuditEntry Rehydrate(
+        Guid id,
+        string actorUserId,
+        string action,
+        string targetType,
+        string targetId,
+        string? beforeValue,
+        string afterValue,
+        DateTimeOffset occurredAt) => new()
+        {
+            Id = id,
+            ActorUserId = actorUserId,
+            Action = action,
+            TargetType = targetType,
+            TargetId = targetId,
+            BeforeValue = beforeValue,
+            AfterValue = afterValue,
+            OccurredAt = occurredAt,
+        };
 }

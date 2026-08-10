@@ -57,20 +57,20 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Implementation for Foundational
 
-- [ ] T009 Configure the FluentMigrator runner project and migration-execution entry point in `src/Attribution.Infrastructure/Data/Migrations/` per research.md §13
-- [ ] T010 Author the baseline schema migration covering every entity in data-model.md (Website, Number Pool, Tracking Number, Allocation, Visitor, Session, Call, Call Leg, Attribution, Qualification Rule, Qualification Result, Conversion Publication, Ingestion Checkpoint, User, Role, Alert, Audit Entry, Review Case) in `src/Attribution.Infrastructure/Data/Migrations/` (depends on T009)
-- [ ] T011 [P] Implement the Dapper connection-factory and base repository pattern in `src/Attribution.Infrastructure/Data/` (depends on T009)
-- [ ] T012 [P] Implement the Website domain entity and repository in `src/Attribution.Domain/Websites/Website.cs`, `src/Attribution.Infrastructure/Data/WebsiteRepository.cs` (depends on T011)
-- [ ] T013 [P] Implement the User/Role domain entities and repository in `src/Attribution.Domain/Identity/User.cs`, `src/Attribution.Infrastructure/Data/UserRepository.cs` (depends on T011)
-- [ ] T014 Implement OIDC federation and 5-minute JWT issuance with silent refresh in `src/Attribution.Infrastructure/Identity/` per research.md §5, FR-046 (depends on T013)
-- [ ] T015 [P] Implement break-glass account authentication (local credentials + TOTP MFA, default 2 accounts) in `src/Attribution.Infrastructure/Identity/` per FR-046 (depends on T013)
-- [ ] T016 Implement JWT validation and RBAC middleware enforcing FR-038 on every route in `src/Attribution.Api/Middleware/` (depends on T014, T015)
-- [ ] T017 [P] Implement the Audit Entry domain entity and an append-only repository (no UPDATE/DELETE grant at the database level) in `src/Attribution.Domain/Audit/AuditEntry.cs`, `src/Attribution.Infrastructure/Data/AuditRepository.cs` per FR-035 (depends on T011)
-- [ ] T018 Implement audit-logging middleware that writes an Audit Entry (actor, action, target, before/after) for every state-changing admin request in `src/Attribution.Api/Middleware/` (depends on T016, T017)
-- [ ] T019 [P] Implement rate-limiting middleware (600 req/min per origin, 10 req/min per client, per-website configurable) in `src/Attribution.Api/Middleware/` per FR-037, research.md §11
-- [ ] T020 [P] Implement structured logging, metrics and health-check infrastructure across `src/Attribution.Api/` and `src/Attribution.Workers/` per FR-041
-- [ ] T021 [P] Implement the `Attribution.Workers` host with four `IHostedService` loop stubs (Ingestion, Publication, Alerting, Retention) in `src/Attribution.Workers/` per research.md §4
-- [ ] T022 [P] Implement the outbox table writer helper in `src/Attribution.Infrastructure/Data/` per research.md §3 (depends on T010)
+- [X] T009 Configure the FluentMigrator runner project and migration-execution entry point in `src/Attribution.Infrastructure/Data/Migrations/` per research.md §13
+- [X] T010 Author the baseline schema migration covering every entity in data-model.md (Website, Number Pool, Tracking Number, Allocation, Visitor, Session, Call, Call Leg, Attribution, Qualification Rule, Qualification Result, Conversion Publication, Ingestion Checkpoint, User, Role, Alert, Audit Entry, Review Case) in `src/Attribution.Infrastructure/Data/Migrations/` (depends on T009)
+- [X] T011 [P] Implement the Dapper connection-factory and base repository pattern in `src/Attribution.Infrastructure/Data/` (depends on T009)
+- [X] T012 [P] Implement the Website domain entity and repository in `src/Attribution.Domain/Websites/Website.cs`, `src/Attribution.Infrastructure/Data/WebsiteRepository.cs` (depends on T011)
+- [X] T013 [P] Implement the User/Role domain entities and repository in `src/Attribution.Domain/Identity/User.cs`, `src/Attribution.Infrastructure/Data/UserRepository.cs` (depends on T011)
+- [X] T014 Implement OIDC federation and 5-minute JWT issuance with silent refresh in `src/Attribution.Infrastructure/Identity/` per research.md §5, FR-046 (depends on T013)
+- [X] T015 [P] Implement break-glass account authentication (local credentials + TOTP MFA, default 2 accounts) in `src/Attribution.Infrastructure/Identity/` per FR-046 (depends on T013)
+- [X] T016 Implement JWT validation and RBAC middleware enforcing FR-038 on every route in `src/Attribution.Api/Middleware/` (depends on T014, T015)
+- [X] T017 [P] Implement the Audit Entry domain entity and an append-only repository (no UPDATE/DELETE grant at the database level) in `src/Attribution.Domain/Audit/AuditEntry.cs`, `src/Attribution.Infrastructure/Data/AuditRepository.cs` per FR-035 (depends on T011)
+- [X] T018 Implement audit-logging middleware that writes an Audit Entry (actor, action, target, before/after) for every state-changing admin request in `src/Attribution.Api/Middleware/` (depends on T016, T017)
+- [X] T019 [P] Implement rate-limiting middleware (600 req/min per origin, 10 req/min per client, per-website configurable) in `src/Attribution.Api/Middleware/` per FR-037, research.md §11
+- [X] T020 [P] Implement structured logging, metrics and health-check infrastructure across `src/Attribution.Api/` and `src/Attribution.Workers/` per FR-041
+- [X] T021 [P] Implement the `Attribution.Workers` host with four `IHostedService` loop stubs (Ingestion, Publication, Alerting, Retention) in `src/Attribution.Workers/` per research.md §4
+- [X] T022 [P] Implement the outbox table writer helper in `src/Attribution.Infrastructure/Data/` per research.md §3 (depends on T010)
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
 

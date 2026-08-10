@@ -1,0 +1,109 @@
+using Attribution.Domain.Identity;
+using Dapper;
+
+namespace Attribution.Infrastructure.Data;
+
+public sealed class UserRepository : RepositoryBase, IUserRepository
+{
+    public UserRepository(IDbConnectionFactory connectionFactory) : base(connectionFactory) { }
+
+    public async Task<User?> GetByIdAsync(Guid id)
+    {
+        using var connection = OpenConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(
+            "SELECT * FROM users WHERE id = @Id", new { Id = id.ToString() });
+        return row?.ToDomain();
+    }
+
+    public async Task<User?> GetBySubjectRefAsync(string subjectRef)
+    {
+        using var connection = OpenConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(
+            "SELECT * FROM users WHERE subject_ref = @SubjectRef", new { SubjectRef = subjectRef });
+        return row?.ToDomain();
+    }
+
+    public async Task<User?> GetByUsernameAsync(string username)
+    {
+        using var connection = OpenConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<UserRow>(
+            "SELECT * FROM users WHERE username = @Username", new { Username = username });
+        return row?.ToDomain();
+    }
+
+    public async Task<IReadOnlyList<User>> GetBreakGlassUsersAsync()
+    {
+        using var connection = OpenConnection();
+        var rows = await connection.QueryAsync<UserRow>(
+            "SELECT * FROM users WHERE identity_type = @IdentityType",
+            new { IdentityType = nameof(IdentityType.BreakGlass) });
+        return rows.Select(r => r.ToDomain()).ToList();
+    }
+
+    public async Task AddAsync(User user)
+    {
+        using var connection = OpenConnection();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO users
+                (id, subject_ref, username, client_id, identity_type, mapped_role, role_override,
+                 role_overridden_by, mfa_required, is_active, created_at, last_seen_at)
+            VALUES
+                (@Id, @SubjectRef, @Username, @ClientId, @IdentityType, @MappedRole, @RoleOverride,
+                 @RoleOverriddenBy, @MfaRequired, @IsActive, @CreatedAt, @LastSeenAt)
+            """,
+            UserRow.FromDomain(user));
+    }
+
+    public async Task UpdateAsync(User user)
+    {
+        using var connection = OpenConnection();
+        await connection.ExecuteAsync(
+            """
+            UPDATE users SET
+                role_override = @RoleOverride, role_overridden_by = @RoleOverriddenBy,
+                is_active = @IsActive, last_seen_at = @LastSeenAt
+            WHERE id = @Id
+            """,
+            UserRow.FromDomain(user));
+    }
+
+    private sealed class UserRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string? SubjectRef { get; set; }
+        public string? Username { get; set; }
+        public string? ClientId { get; set; }
+        public string IdentityType { get; set; } = string.Empty;
+        public string MappedRole { get; set; } = string.Empty;
+        public string? RoleOverride { get; set; }
+        public string? RoleOverriddenBy { get; set; }
+        public bool MfaRequired { get; set; }
+        public bool IsActive { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? LastSeenAt { get; set; }
+
+        public User ToDomain() => User.Rehydrate(
+            Guid.Parse(Id), SubjectRef, Username, ClientId,
+            Enum.Parse<Domain.Identity.IdentityType>(IdentityType),
+            Enum.Parse<Role>(MappedRole),
+            RoleOverride is null ? null : Enum.Parse<Role>(RoleOverride),
+            RoleOverriddenBy, MfaRequired, IsActive, CreatedAt, LastSeenAt);
+
+        public static object FromDomain(User user) => new
+        {
+            Id = user.Id.ToString(),
+            user.SubjectRef,
+            user.Username,
+            user.ClientId,
+            IdentityType = user.IdentityType.ToString(),
+            MappedRole = user.MappedRole.ToString(),
+            RoleOverride = user.RoleOverride?.ToString(),
+            user.RoleOverriddenBy,
+            user.MfaRequired,
+            user.IsActive,
+            user.CreatedAt,
+            user.LastSeenAt,
+        };
+    }
+}

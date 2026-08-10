@@ -2,6 +2,8 @@
 
 Unauthenticated (cannot hold a secret, FR-037); instead origin-restricted (`Origin` header checked against the Website's `permitted_origins`) and rate-limited (600 req/min/origin, 10 req/min/client — FR-037). Every response completes within 300ms for ≥95% of requests at peak (SC-004).
 
+Every request MUST also carry the `X-Attribution-Client-Token` header, set to the same value as the request body's `client_token`, so the rate-limiting middleware can enforce the per-client threshold without buffering and parsing the JSON body on every call.
+
 ## POST /v1/dni/allocate
 
 Requests a tracking number for a new page view.
