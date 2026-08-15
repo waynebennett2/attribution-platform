@@ -1,6 +1,7 @@
 using System;
 using Attribution.Domain.Pools;
 using Xunit;
+using DomainAllocation = Attribution.Domain.Sessions.Allocation;
 
 namespace Attribution.UnitTests.Allocation;
 
@@ -96,7 +97,7 @@ public class AllocationWindowTests
         var start = DateTimeOffset.UtcNow;
         var sessionExpiresAt = start.AddMinutes(30);
 
-        var allocation = Attribution.Domain.Sessions.Allocation.Create(
+        var allocation = DomainAllocation.Create(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, sessionExpiresAt, Extension);
 
         Assert.Equal(sessionExpiresAt.Add(Extension), allocation.WindowEnd);
@@ -106,7 +107,7 @@ public class AllocationWindowTests
     public void CloseImmediately_EndsWindowAtWithdrawalMoment_NoExtension()
     {
         var start = DateTimeOffset.UtcNow;
-        var allocation = Attribution.Domain.Sessions.Allocation.Create(
+        var allocation = DomainAllocation.Create(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
 
         var withdrawnAt = start.AddMinutes(5);
@@ -120,8 +121,8 @@ public class AllocationWindowTests
     public void TwoAllocations_ForDifferentNumbers_NeverOverlap_EvenWithSameWindow()
     {
         var start = DateTimeOffset.UtcNow;
-        var a = Attribution.Domain.Sessions.Allocation.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
-        var b = Attribution.Domain.Sessions.Allocation.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
+        var a = DomainAllocation.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
+        var b = DomainAllocation.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
 
         Assert.False(a.OverlapsWith(b));
     }
@@ -131,8 +132,8 @@ public class AllocationWindowTests
     {
         var numberId = Guid.NewGuid();
         var start = DateTimeOffset.UtcNow;
-        var a = Attribution.Domain.Sessions.Allocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
-        var b = Attribution.Domain.Sessions.Allocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), start.AddMinutes(10), start.AddMinutes(40), Extension);
+        var a = DomainAllocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
+        var b = DomainAllocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), start.AddMinutes(10), start.AddMinutes(40), Extension);
 
         Assert.True(a.OverlapsWith(b));
     }
@@ -142,9 +143,9 @@ public class AllocationWindowTests
     {
         var numberId = Guid.NewGuid();
         var start = DateTimeOffset.UtcNow;
-        var a = Attribution.Domain.Sessions.Allocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
+        var a = DomainAllocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), start, start.AddMinutes(30), Extension);
         // b starts exactly when a's window ends — the FR-006 cooldown boundary.
-        var b = Attribution.Domain.Sessions.Allocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), a.WindowEnd, a.WindowEnd.AddMinutes(30), Extension);
+        var b = DomainAllocation.Create(numberId, Guid.NewGuid(), Guid.NewGuid(), a.WindowEnd, a.WindowEnd.AddMinutes(30), Extension);
 
         Assert.False(a.OverlapsWith(b));
     }
