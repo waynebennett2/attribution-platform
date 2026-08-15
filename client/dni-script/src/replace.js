@@ -91,15 +91,29 @@ function replaceInTextNode(node, patterns, newNumber) {
   }
 }
 
+// Builds a dialable tel: URI for newNumber. Only prefixes "+" when newNumber's own text
+// already starts with one (i.e. it's already E.164, as the allocated tracking number
+// always is) — never fabricates one. A website's configured default number is typically
+// written in local/national format (e.g. UK "01632 960000", leading trunk "0" included),
+// and blindly prepending "+" to its raw digits produces an invalid number like
+// "+01632960000" (no real E.164 number starts with +0). Without a known country code
+// there's no safe way to convert a local number to E.164, so it's kept as a local dial
+// string instead — still correct to dial within that number's own regional context, and
+// exactly what the page's own static markup would have used.
+function toTelHref(newNumber) {
+  const digits = toDigits(newNumber);
+  return newNumber.trim().startsWith("+") ? `tel:+${digits}` : `tel:${digits}`;
+}
+
 // Digit-normalized comparison against the configured numbers' own digit sequences —
 // href values carry no punctuation to normalize away, so this is a direct set lookup
 // rather than reusing the text-matching regex patterns.
 function replaceTelLinks(root, configuredDigitSets, newNumber) {
-  const newDigits = toDigits(newNumber);
+  const telHref = toTelHref(newNumber);
   root.querySelectorAll('a[href^="tel:"]').forEach((anchor) => {
     const hrefDigits = toDigits(anchor.getAttribute("href") || "");
     if (configuredDigitSets.has(hrefDigits)) {
-      anchor.setAttribute("href", `tel:+${newDigits}`);
+      anchor.setAttribute("href", telHref);
     }
   });
 }
@@ -108,7 +122,7 @@ function replaceMarkedElements(root, newNumber) {
   root.querySelectorAll(`[${MARKER_ATTRIBUTE}]`).forEach((element) => {
     element.textContent = newNumber;
     if (element.tagName === "A" && element.hasAttribute("href")) {
-      element.setAttribute("href", `tel:+${toDigits(newNumber)}`);
+      element.setAttribute("href", toTelHref(newNumber));
     }
   });
 }

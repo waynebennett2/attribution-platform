@@ -33,11 +33,27 @@ test.describe("DNI number replacement", () => {
   });
 
   test("replaces the tel: link href and its displayed text", async ({ page }) => {
+    // Overrides the describe-level mock with a realistic allocated number: the real API
+    // always returns the tracking number's DID as stored (E.164, per DidValidator), never
+    // a bare national-format string like the describe-level mock uses for the
+    // pattern-preservation tests above.
+    await page.route("**/v1/dni/allocate", async (route) => {
+      await route.fulfill({
+        json: {
+          session_id: "session-1",
+          number: "+15559990000",
+          expires_at: new Date(Date.now() + 1800000).toISOString(),
+        },
+      });
+    });
     await page.goto("/tests/fixtures/multi-page.html");
 
     const telLink = page.locator("#tel-link");
-    await expect(telLink).toHaveAttribute("href", "tel:+5559990000");
-    await expect(telLink).toContainText("555.999.0000");
+    await expect(telLink).toHaveAttribute("href", "tel:+15559990000");
+    // Digit counts differ (10-digit displayed text vs. 11-digit E.164 allocated number),
+    // so the displayed text falls back to the number's plain +E.164 form rather than
+    // guessing a pattern-preserving placement for the extra country-code digit.
+    await expect(telLink).toContainText("+15559990000");
   });
 
   test("replaces an element carrying the marker attribute", async ({ page }) => {
