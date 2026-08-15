@@ -23,13 +23,20 @@ function toDigits(text) {
 // JS regex tries the leftmost start position first, it actually swallowed everything back
 // to the start of the text node whenever no other digit character interrupted it — e.g.
 // matching all of "Call us on " in "Call us on 555-000-0000", not just the number itself.
+//
+// The one exception is a single, literal `(` immediately before the digits: it's bounded
+// (matches at most one specific character, so it can't reintroduce the swallowing bug
+// above), and pulling it into the match pairs it with the `)` that a pattern like
+// "(555) 000-0000" already captures via the interleaved gap between digit groups. Without
+// this, a case where the digit counts don't line up (see reformatPreservingPattern) would
+// drop the interior `)` but leave the `(` behind, producing a visibly unbalanced bracket.
 function buildMatchPattern(configuredNumber) {
   const digits = toDigits(configuredNumber);
   if (digits.length === 0) {
     return null;
   }
   const escaped = digits.split("").join("[^0-9]*");
-  return new RegExp(escaped, "g");
+  return new RegExp(`\\(?${escaped}`, "g");
 }
 
 // Rewrites matchedText's digits to newNumber's digits, preserving the matched text's
