@@ -11,6 +11,31 @@ function toDigits(text) {
   return (text.match(/\d/g) || []).join("");
 }
 
+// This project's numbers always follow the standard Ofcom UK numbering plan: E.164 form
+// is "44" + national significant number, with the national format's leading trunk "0"
+// dropped (e.g. "01632 960000" -> "+441632960000"). Stripping whichever of those two
+// prefixes is present recovers the "core" digits, which can then be re-expressed in
+// either form as needed.
+function ukCoreDigits(digits) {
+  if (digits.startsWith("44")) {
+    return digits.slice(2);
+  }
+  if (digits.startsWith("0")) {
+    return digits.slice(1);
+  }
+  return null;
+}
+
+// Expands a digit string into every form (national and/or E.164) that should be
+// recognized as the same underlying number. Needed because a number already rewritten on
+// the page in one form by an earlier apply() call — e.g. a tel: href written as E.164 for
+// a number that was configured in national format — must still be found and updated by a
+// later apply() call, even though the two calls' own number strings are in different forms.
+function ukFormVariants(digits) {
+  const core = ukCoreDigits(digits);
+  return core === null ? [digits] : [`0${core}`, `44${core}`];
+}
+
 // Builds a regex that matches the configured number's digit sequence with any
 // non-digit punctuation (spaces, dashes, parens, dots) optionally interleaved, so
 // "555-123-4567", "(555) 123-4567" and "5551234567" are all recognized as the same number.
@@ -30,9 +55,8 @@ function toDigits(text) {
 // "(555) 000-0000" already captures via the interleaved gap between digit groups. Without
 // this, a case where the digit counts don't line up (see reformatPreservingPattern) would
 // drop the interior `)` but leave the `(` behind, producing a visibly unbalanced bracket.
-function buildMatchPattern(configuredNumber) {
-  const digits = toDigits(configuredNumber);
-  if (digits.length === 0) {
+function buildMatchPattern(digits) {
+  if (!digits || digits.length === 0) {
     return null;
   }
   const escaped = digits.split("").join("[^0-9]*");
@@ -41,30 +65,41 @@ function buildMatchPattern(configuredNumber) {
 
 // Rewrites matchedText's digits to newNumber's digits, preserving the matched text's
 // own punctuation/spacing pattern (FR-009: "written using the matched text's own visual
-// pattern rather than a fixed format") — but only when the digit counts line up exactly.
+// pattern rather than a fixed format").
 function reformatPreservingPattern(matchedText, newNumberDigits) {
   const matchedDigitCount = (matchedText.match(/\d/g) || []).length;
+  let digitsToMap = newNumberDigits;
 
-  // A mismatched digit count can't be safely mapped onto the old pattern without
-  // locale-specific phone number knowledge this client doesn't have. It's tempting to
-  // treat any extra leading digits as "a country code, so just prefix them" — that's
-  // exactly right for NANP (+1 555-000-0000 is the 10-digit national number with a
-  // single digit "1" prepended), but wrong for most other countries. UK numbers, for
-  // example, drop the national format's leading trunk "0" when adding "+44"
-  // (01793 855 555, 11 digits -> +441793855555, 12 digits): the digit count only goes up
-  // by 1, so a "1 leading digit is the country code" guess takes just one "4" as the
-  // prefix and misaligns every remaining digit against the old pattern's slots, silently
-  // producing a wrong, undialable number (e.g. "+4 41793 855 555"). Rather than guess,
-  // fall back to the number's own plain +E.164 form, which is always correct.
   if (newNumberDigits.length !== matchedDigitCount) {
-    return `+${newNumberDigits}`;
+    // A mismatched digit count generally can't be safely mapped onto the old pattern
+    // without locale-specific phone number knowledge — treating any extra leading digits
+    // as "a country code, so just prefix them" is right for NANP (+1 555-000-0000 is the
+    // 10-digit national number with a single digit "1" prepended) but wrong for most other
+    // countries, since e.g. UK numbers also drop the national format's leading trunk "0"
+    // when adding "+44". This project's numbers are always standard Ofcom UK numbers
+    // though (per the user), so that conversion is known and safe to apply: re-express
+    // the new number in whichever of national ("0"-prefixed) or E.164 ("44"-prefixed) form
+    // matches the old pattern's own digit count, then map onto it as normal below.
+    const core = ukCoreDigits(newNumberDigits);
+    const asNational = core === null ? null : `0${core}`;
+    const asE164 = core === null ? null : `44${core}`;
+    if (asNational && asNational.length === matchedDigitCount) {
+      digitsToMap = asNational;
+    } else if (asE164 && asE164.length === matchedDigitCount) {
+      digitsToMap = asE164;
+    } else {
+      // Not a recognizable UK national/E.164 pairing — fall back to the number's own
+      // plain +E.164 form, which is always correct even though it won't preserve the
+      // original pattern's formatting.
+      return `+${newNumberDigits}`;
+    }
   }
 
   let digitIndex = 0;
   let result = "";
   for (const ch of matchedText) {
     if (/[0-9]/.test(ch)) {
-      result += newNumberDigits[digitIndex];
+      result += digitsToMap[digitIndex];
       digitIndex += 1;
     } else {
       result += ch;
@@ -91,18 +126,19 @@ function replaceInTextNode(node, patterns, newNumber) {
   }
 }
 
-// Builds a dialable tel: URI for newNumber. Only prefixes "+" when newNumber's own text
-// already starts with one (i.e. it's already E.164, as the allocated tracking number
-// always is) — never fabricates one. A website's configured default number is typically
-// written in local/national format (e.g. UK "01632 960000", leading trunk "0" included),
-// and blindly prepending "+" to its raw digits produces an invalid number like
-// "+01632960000" (no real E.164 number starts with +0). Without a known country code
-// there's no safe way to convert a local number to E.164, so it's kept as a local dial
-// string instead — still correct to dial within that number's own regional context, and
-// exactly what the page's own static markup would have used.
+// Builds a dialable tel: URI for newNumber. If newNumber's own text already starts with
+// "+" it's already E.164 (as the allocated tracking number always is) and is used as-is.
+// Otherwise it's a website's configured default number, typically written in UK
+// national/local format (e.g. "01632 960000", leading trunk "0" included) — converted to
+// proper E.164 via the standard Ofcom UK rule (drop the leading "0", prepend "44") so the
+// link works from any device/network, not just within the UK.
 function toTelHref(newNumber) {
   const digits = toDigits(newNumber);
-  return newNumber.trim().startsWith("+") ? `tel:+${digits}` : `tel:${digits}`;
+  if (newNumber.trim().startsWith("+")) {
+    return `tel:+${digits}`;
+  }
+  const core = ukCoreDigits(digits);
+  return core === null ? `tel:${digits}` : `tel:+44${core}`;
 }
 
 // Digit-normalized comparison against the configured numbers' own digit sequences —
@@ -156,9 +192,16 @@ export function createReplacer({ configuredNumbers }) {
     const numbers = lastAppliedNumber
       ? [...configuredNumbers, lastAppliedNumber]
       : configuredNumbers;
+    // Each number expands to both its national and E.164 digit forms (see
+    // ukFormVariants), since the page may currently show either form depending on what a
+    // previous apply() call last wrote.
+    const digitVariants = numbers
+      .map(toDigits)
+      .filter((d) => d.length > 0)
+      .flatMap(ukFormVariants);
     return {
-      patterns: numbers.map(buildMatchPattern).filter(Boolean),
-      digitSets: new Set(numbers.map(toDigits).filter((d) => d.length > 0)),
+      patterns: digitVariants.map(buildMatchPattern).filter(Boolean),
+      digitSets: new Set(digitVariants),
     };
   }
 
