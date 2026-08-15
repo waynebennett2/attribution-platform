@@ -68,7 +68,14 @@ builder.Services.AddSingleton(_ =>
 
 // --- Authentication: validates the platform-issued JWT (T016) ---
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options => options.TokenValidationParameters = tokenIssuer.BuildValidationParameters());
+    .AddJwtBearer(options =>
+    {
+        // Without this, the handler remaps short claim names (JwtTokenIssuer's "role", "sub")
+        // to long ClaimTypes.* URIs on inbound validation, so OperationAuthorizationHandler's
+        // FindFirst("role") never matches and every RBAC-gated endpoint 403s regardless of role.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = tokenIssuer.BuildValidationParameters();
+    });
 
 // --- Authorization: one policy per Operation, backed by RbacPolicy (T016, FR-038) ---
 builder.Services.AddAuthorization(options =>
