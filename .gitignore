@@ -47,3 +47,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Local project management tracking (not part of the codebase)
+project-status.xlsx
