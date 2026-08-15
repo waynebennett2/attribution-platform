@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DNI manual demo — Page 2 (talks to the real running API)</title>
+    <style>
+      body { font-family: sans-serif; max-width: 640px; margin: 2rem auto; line-height: 1.5; }
+      #status { background: #f0f0f0; border: 1px solid #ccc; padding: 0.75rem 1rem; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; }
+      button { margin-right: 0.5rem; padding: 0.4rem 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <h1>User Story 1 manual demo — Page 2</h1>
+    <p>
+      Same website/session as Page 1 (same <code>websiteId</code>, same origin — session
+      state lives in <code>localStorage</code>, shared across pages/tabs). If you already
+      granted consent on Page 1, this page should pick up the <em>same</em> allocated
+      number below without a new allocation happening.
+    </p>
+
+    <p id="text-1">Call us on 01632 960000 today.</p>
+    <p id="text-2">Our number is 01632 960 000.</p>
+    <a id="tel-link" href="tel:01632960000">01632.960000</a>
+
+    <p>
+      <button id="grant-btn" type="button">Grant Consent</button>
+      <button id="withdraw-btn" type="button">Withdraw Consent</button>
+      <a href="/tests/fixtures/demo.html">← Back to Page 1</a>
+    </p>
+
+    <h3>Status</h3>
+    <div id="status">(loading…)</div>
+
+    <script>
+      const WEBSITE_ID = "00000000-0000-0000-0000-000000000001"; // matches seed-dev-data.sql
+      window.__attributionConfig = {
+        apiBaseUrl: "http://localhost:5141",
+        websiteId: WEBSITE_ID,
+        defaultNumber: "01632 960000",
+        configuredNumbers: ["01632 960000"],
+        heartbeatIntervalMs: 300000,
+      };
+
+      function grantConsent() {
+        window.__attributionConsent = { granted: true };
+        window.dispatchEvent(new CustomEvent("attribution:consent-change", { detail: { granted: true } }));
+      }
+      function withdrawConsent() {
+        window.__attributionConsent = { granted: false };
+        window.dispatchEvent(new CustomEvent("attribution:consent-change", { detail: { granted: false } }));
+      }
+      document.getElementById("grant-btn").addEventListener("click", grantConsent);
+      document.getElementById("withdraw-btn").addEventListener("click", withdrawConsent);
+
+      function updateStatus() {
+        const raw = window.localStorage.getItem(`attribution:session:${WEBSITE_ID}`);
+        const consent = window.__attributionConsent ? window.__attributionConsent.granted : "pending (unanswered)";
+        const session = raw ? JSON.parse(raw) : null;
+        document.getElementById("status").textContent =
+          `location.search: ${window.location.search || "(none)"}\n` +
+          `consent granted:  ${consent}\n` +
+          `session (localStorage): ${session ? JSON.stringify(session, null, 2) : "(none)"}`;
+      }
+      setInterval(updateStatus, 500);
+      updateStatus();
+    </script>
+    <script type="module" src="/src/index.js"></script>
+  </body>
+</html>
