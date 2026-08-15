@@ -14,24 +14,50 @@ function toDigits(text) {
 // Builds a regex that matches the configured number's digit sequence with any
 // non-digit punctuation (spaces, dashes, parens, dots) optionally interleaved, so
 // "555-123-4567", "(555) 123-4567" and "5551234567" are all recognized as the same number.
+//
+// Deliberately has no leading `[^0-9]*` before the first digit: since the match is
+// unanchored, a search for the digit sequence already skips over any preceding text
+// (e.g. "(" before an area code) without needing to consume it. An earlier version added
+// `\+?[^0-9]*` here to optionally absorb a leading "+" or punctuation immediately before
+// the number, but because that group can match zero-or-more of *any* non-digit run, and
+// JS regex tries the leftmost start position first, it actually swallowed everything back
+// to the start of the text node whenever no other digit character interrupted it — e.g.
+// matching all of "Call us on " in "Call us on 555-000-0000", not just the number itself.
 function buildMatchPattern(configuredNumber) {
   const digits = toDigits(configuredNumber);
   if (digits.length === 0) {
     return null;
   }
   const escaped = digits.split("").join("[^0-9]*");
-  return new RegExp(`\\+?[^0-9]*${escaped}`, "g");
+  return new RegExp(escaped, "g");
 }
 
 // Rewrites matchedText's digits to newNumber's digits, preserving the matched text's
 // own punctuation/spacing pattern (FR-009: "written using the matched text's own visual
-// pattern rather than a fixed format").
+// pattern rather than a fixed format") — but only when the digit counts line up exactly.
 function reformatPreservingPattern(matchedText, newNumberDigits) {
+  const matchedDigitCount = (matchedText.match(/\d/g) || []).length;
+
+  // A mismatched digit count can't be safely mapped onto the old pattern without
+  // locale-specific phone number knowledge this client doesn't have. It's tempting to
+  // treat any extra leading digits as "a country code, so just prefix them" — that's
+  // exactly right for NANP (+1 555-000-0000 is the 10-digit national number with a
+  // single digit "1" prepended), but wrong for most other countries. UK numbers, for
+  // example, drop the national format's leading trunk "0" when adding "+44"
+  // (01793 855 555, 11 digits -> +441793855555, 12 digits): the digit count only goes up
+  // by 1, so a "1 leading digit is the country code" guess takes just one "4" as the
+  // prefix and misaligns every remaining digit against the old pattern's slots, silently
+  // producing a wrong, undialable number (e.g. "+4 41793 855 555"). Rather than guess,
+  // fall back to the number's own plain +E.164 form, which is always correct.
+  if (newNumberDigits.length !== matchedDigitCount) {
+    return `+${newNumberDigits}`;
+  }
+
   let digitIndex = 0;
   let result = "";
   for (const ch of matchedText) {
     if (/[0-9]/.test(ch)) {
-      result += digitIndex < newNumberDigits.length ? newNumberDigits[digitIndex] : "";
+      result += newNumberDigits[digitIndex];
       digitIndex += 1;
     } else {
       result += ch;
