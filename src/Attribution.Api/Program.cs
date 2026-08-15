@@ -1,4 +1,5 @@
 using Attribution.Api.Middleware;
+using Dapper;
 using Attribution.Application.Administration;
 using Attribution.Application.Allocation;
 using Attribution.Domain.Audit;
@@ -13,7 +14,19 @@ using Attribution.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 
+// Every repository's Dapper row type uses PascalCase properties (e.g. PermittedOrigins)
+// against snake_case columns (permitted_origins). Dapper only matches those by exact name
+// unless told otherwise, so without this every such column silently binds to the
+// property's default value instead of erroring.
+DefaultTypeMap.MatchNamesWithUnderscores = true;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Gitignored per-developer overrides (real DB credentials, etc.) — never committed.
+// Loaded last so it takes precedence over appsettings.{Environment}.json; see
+// appsettings.Development.local.json.example for the expected shape.
+builder.Configuration.AddJsonFile(
+    $"appsettings.{builder.Environment.EnvironmentName}.local.json", optional: true, reloadOnChange: true);
 
 // FR-041: structured (JSON) logs so a single call can be traced end to end by any
 // downstream log aggregator.
@@ -25,6 +38,19 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// FR-037: the /v1/dni/* endpoints are unauthenticated and called from the visitor's
+// browser on the customer's own website — a different origin than this API — so the
+// CORS preflight must be allowed through before DniController's own per-website
+// permitted-origins check (which needs the request body, unavailable during preflight)
+// ever runs. The actual allow-list enforcement stays in the controller.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DniClient", policy => policy
+        .SetIsOriginAllowed(_ => true)
+        .AllowAnyHeader()
+        .WithMethods("POST", "OPTIONS"));
+});
 
 // --- Data access (T011-T013) ---
 var connectionString = builder.Configuration.GetConnectionString("AttributionDb")
@@ -115,6 +141,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("DniClient");
 
 app.UseMiddleware<RateLimitingMiddleware>();
 

@@ -5,6 +5,12 @@ using Attribution.Workers.RetentionWorker;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// Gitignored per-developer overrides (real DB credentials, etc.) — never committed.
+// Loaded last so it takes precedence over appsettings.{Environment}.json; see
+// appsettings.Development.local.json.example for the expected shape.
+builder.Configuration.AddJsonFile(
+    $"appsettings.{builder.Environment.EnvironmentName}.local.json", optional: true, reloadOnChange: true);
+
 // FR-041: structured (JSON) logs, matching the Api host, so a call can be traced end to
 // end across both processes.
 builder.Logging.AddJsonConsole();
