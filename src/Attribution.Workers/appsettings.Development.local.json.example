@@ -2,5 +2,11 @@
   "_comment": "Copy this file to appsettings.Development.local.json (gitignored) and fill in your real values. That file is loaded last, so it overrides whatever is in appsettings.Development.json.",
   "ConnectionStrings": {
     "AttributionDb": "Server=<your-host>;Port=3306;Database=<your-database>;User=<your-user>;Password=<your-password>;"
+  },
+  "Analytics8x8": {
+    "BaseUrl": "<your Analytics for 8x8 Work API base URL>",
+    "TokenUrl": "<your Analytics for 8x8 Work OAuth2 token URL>",
+    "ClientId": "<your client id>",
+    "ClientSecret": "<your client secret>"
   }
 }

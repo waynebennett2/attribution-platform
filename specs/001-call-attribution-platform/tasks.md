@@ -129,23 +129,23 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Tests for User Story 2
 
-- [ ] T042 [P] [US2] Unit tests for strict DID + window attribution matching (attributed/unattributed/ambiguous) in `tests/Attribution.UnitTests/Attribution/AttributionServiceTests.cs`
-- [ ] T043 [P] [US2] Unit tests for idempotent CDR/Call Leg upsert and checkpoint advancement (FR-017) in `tests/Attribution.UnitTests/Ingestion/IngestionTests.cs`
-- [ ] T044 [P] [US2] Unit tests for FR-045 re-derivation on restated or in-progress call records (rule-version-at-call-time preserved, superseded history retained) in `tests/Attribution.UnitTests/Attribution/ReDerivationTests.cs`
-- [ ] T045 [P] [US2] Integration test covering SC-001's full seeded-call scenario set (in-window, expired-but-in-extension, closed-window, never-allocated, suspended-number, DST transition, midnight-crossing) against a MySQL Testcontainer in `tests/Attribution.IntegrationTests/Attribution/SeededCallAttributionTests.cs`
-- [ ] T046 [P] [US2] Integration test: re-ingesting an identical batch three times produces zero change in any report total (SC-002) in `tests/Attribution.IntegrationTests/Ingestion/IdempotentReingestionTests.cs`
+- [X] T042 [P] [US2] Unit tests for strict DID + window attribution matching (attributed/unattributed/ambiguous) in `tests/Attribution.UnitTests/Attribution/AttributionServiceTests.cs`
+- [X] T043 [P] [US2] Unit tests for idempotent CDR/Call Leg upsert and checkpoint advancement (FR-017) in `tests/Attribution.UnitTests/Ingestion/IngestionTests.cs`
+- [X] T044 [P] [US2] Unit tests for FR-045 re-derivation on restated or in-progress call records (rule-version-at-call-time preserved, superseded history retained) in `tests/Attribution.UnitTests/Attribution/ReDerivationTests.cs`
+- [X] T045 [P] [US2] Integration test covering SC-001's full seeded-call scenario set (in-window, expired-but-in-extension, closed-window, never-allocated, suspended-number, DST transition, midnight-crossing) against a MySQL Testcontainer in `tests/Attribution.IntegrationTests/Attribution/SeededCallAttributionTests.cs`
+- [X] T046 [P] [US2] Integration test: re-ingesting an identical batch three times produces zero change in any report total (SC-002) in `tests/Attribution.IntegrationTests/Ingestion/IdempotentReingestionTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T047 [P] [US2] Implement Call and Call Leg domain entities and repositories (idempotent upsert on source natural keys, orphaned-leg handling) in `src/Attribution.Domain/Calls/`, `src/Attribution.Infrastructure/Data/` per FR-017 (depends on T011)
-- [ ] T048 [P] [US2] Implement the Attribution domain entity and repository (attributed/unattributed/ambiguous state machine, superseded-history rows) in `src/Attribution.Domain/Calls/Attribution.cs`, `src/Attribution.Infrastructure/Data/AttributionRepository.cs` (depends on T011)
-- [ ] T049 [P] [US2] Implement the Ingestion Checkpoint domain entity and repository in `src/Attribution.Domain/Calls/IngestionCheckpoint.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
-- [ ] T050 [US2] Implement the Analytics for 8x8 Work client (authentication, CDR/Call Leg polling) in `src/Attribution.Infrastructure/Ingestion8x8/` per research.md §8 (depends on T049)
-- [ ] T051 [US2] Implement `AttributionService` (exact DID + window matching, unattributed/ambiguous classification, evidence storage per FR-019) in `src/Attribution.Application/Attribution/AttributionService.cs` per FR-018–FR-021 (depends on T048)
-- [ ] T052 [US2] Implement Review Case creation on ambiguous attribution in `src/Attribution.Application/Attribution/AttributionService.cs`, `src/Attribution.Domain/Audit/ReviewCase.cs` per FR-021, FR-036 (depends on T051)
-- [ ] T053 [US2] Implement re-derivation on restated/in-progress calls (FR-045: update in place, re-derive against rule version at call time, retain superseded history, idempotent on unchanged records) in `src/Attribution.Application/Attribution/ReDerivationService.cs` (depends on T051)
-- [ ] T054 [US2] Implement the `IngestionWorker` loop (poll on FR-016's configurable cadence, idempotent upsert per FR-017, checkpoint advance, orphaned-Call-Leg handling) in `src/Attribution.Workers/IngestionWorker/` per research.md §3, §8 (depends on T050, T051, T053)
-- [ ] T055 [P] [US2] Implement the replay/backfill command (operator-specified period, no duplicate records/attributions, safe alongside live ingestion) in `src/Attribution.Application/Attribution/BackfillService.cs` per FR-042 (depends on T054)
+- [X] T047 [P] [US2] Implement Call and Call Leg domain entities and repositories (idempotent upsert on source natural keys, orphaned-leg handling) in `src/Attribution.Domain/Calls/`, `src/Attribution.Infrastructure/Data/` per FR-017 (depends on T011)
+- [X] T048 [P] [US2] Implement the Attribution domain entity and repository (attributed/unattributed/ambiguous state machine, superseded-history rows) in `src/Attribution.Domain/Calls/Attribution.cs`, `src/Attribution.Infrastructure/Data/AttributionRepository.cs` (depends on T011)
+- [X] T049 [P] [US2] Implement the Ingestion Checkpoint domain entity and repository in `src/Attribution.Domain/Calls/IngestionCheckpoint.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
+- [X] T050 [US2] Implement the Analytics for 8x8 Work client (authentication, CDR/Call Leg polling) in `src/Attribution.Infrastructure/Ingestion8x8/` per research.md §8 (depends on T049)
+- [X] T051 [US2] Implement `AttributionService` (exact DID + window matching, unattributed/ambiguous classification, evidence storage per FR-019) in `src/Attribution.Application/Attribution/AttributionService.cs` per FR-018–FR-021 (depends on T048)
+- [X] T052 [US2] Implement Review Case creation on ambiguous attribution in `src/Attribution.Application/Attribution/AttributionService.cs`, `src/Attribution.Domain/Audit/ReviewCase.cs` per FR-021, FR-036 (depends on T051)
+- [X] T053 [US2] Implement re-derivation on restated/in-progress calls (FR-045: update in place, re-derive against rule version at call time, retain superseded history, idempotent on unchanged records) in `src/Attribution.Application/Attribution/ReDerivationService.cs` (depends on T051)
+- [X] T054 [US2] Implement the `IngestionWorker` loop (poll on FR-016's configurable cadence, idempotent upsert per FR-017, checkpoint advance, orphaned-Call-Leg handling) in `src/Attribution.Workers/IngestionWorker/` per research.md §3, §8 (depends on T050, T051, T053)
+- [X] T055 [P] [US2] Implement the replay/backfill command (operator-specified period, no duplicate records/attributions, safe alongside live ingestion) in `src/Attribution.Application/Attribution/BackfillService.cs` per FR-042 (depends on T054)
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 

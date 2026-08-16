@@ -1,3 +1,4 @@
+using Attribution.Domain.Audit;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
 using Attribution.Domain.Sessions;
@@ -15,15 +16,18 @@ public sealed class AttributionService
     private readonly ITrackingNumberRepository _trackingNumberRepository;
     private readonly IAllocationRepository _allocationRepository;
     private readonly IAttributionRepository _attributionRepository;
+    private readonly IReviewCaseRepository _reviewCaseRepository;
 
     public AttributionService(
         ITrackingNumberRepository trackingNumberRepository,
         IAllocationRepository allocationRepository,
-        IAttributionRepository attributionRepository)
+        IAttributionRepository attributionRepository,
+        IReviewCaseRepository reviewCaseRepository)
     {
         _trackingNumberRepository = trackingNumberRepository;
         _allocationRepository = allocationRepository;
         _attributionRepository = attributionRepository;
+        _reviewCaseRepository = reviewCaseRepository;
     }
 
     // FR-018's matching rule, isolated as pure logic (no repository access) so it can be
@@ -77,6 +81,15 @@ public sealed class AttributionService
         };
 
         await _attributionRepository.AddAsync(attribution);
+
+        if (attribution.State == AttributionState.Ambiguous)
+        {
+            // FR-021, FR-036: never guessed between competing windows — raised for
+            // manual review instead.
+            var reviewCase = ReviewCase.Open(call.Id, attribution.Id, decidedAt);
+            await _reviewCaseRepository.AddAsync(reviewCase);
+        }
+
         return attribution;
     }
 }

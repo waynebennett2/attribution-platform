@@ -71,6 +71,7 @@ builder.Services.AddScoped<ICallRepository, CallRepository>();
 builder.Services.AddScoped<ICallLegRepository, CallLegRepository>();
 builder.Services.AddScoped<IAttributionRepository, AttributionRepository>();
 builder.Services.AddScoped<IIngestionCheckpointRepository, IngestionCheckpointRepository>();
+builder.Services.AddScoped<IReviewCaseRepository, ReviewCaseRepository>();
 builder.Services.AddScoped<Attribution.Application.Attribution.AttributionService>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<ShadowAllocationService>();
