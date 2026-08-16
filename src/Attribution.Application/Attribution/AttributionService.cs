@@ -46,11 +46,17 @@ public sealed class AttributionService
         if (coveringAllocations.Count > 1)
         {
             // FR-021: more than one window matches — never guessed between them.
-            return new AttributionDecision(AttributionState.Ambiguous, null, null, "multiple_allocation_windows_cover_call_start");
+            // FR-049: an overlap where every covering window is shadow-derived is the
+            // parallel run's expected shape, not a defect signal — reported under a
+            // distinct reason so it stays separable from ordinary-operation ambiguity.
+            var allShadow = coveringAllocations.All(a => a.IsShadow);
+            var reason = allShadow ? "shadow_mode_overlapping_observed_windows" : "multiple_allocation_windows_cover_call_start";
+            return new AttributionDecision(AttributionState.Ambiguous, null, null, reason, IsShadowDerived: allShadow);
         }
 
         var allocation = coveringAllocations[0];
-        return new AttributionDecision(AttributionState.Attributed, allocation.SessionId, allocation.Id, null);
+        return new AttributionDecision(
+            AttributionState.Attributed, allocation.SessionId, allocation.Id, null, IsShadowDerived: allocation.IsShadow);
     }
 
     // Orchestrates the full pipeline for one call: resolve the dialled number to a
@@ -75,8 +81,8 @@ public sealed class AttributionService
         var attribution = decision.State switch
         {
             AttributionState.Attributed => DomainAttribution.Attributed(
-                call.Id, decision.SessionId!.Value, decision.AllocationId!.Value, decidedAt),
-            AttributionState.Ambiguous => DomainAttribution.Ambiguous(call.Id, decision.Reason!, decidedAt),
+                call.Id, decision.SessionId!.Value, decision.AllocationId!.Value, decidedAt, decision.IsShadowDerived),
+            AttributionState.Ambiguous => DomainAttribution.Ambiguous(call.Id, decision.Reason!, decidedAt, decision.IsShadowDerived),
             _ => DomainAttribution.Unattributed(call.Id, decision.Reason!, decidedAt),
         };
 

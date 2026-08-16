@@ -185,18 +185,18 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Tests for User Story 4
 
-- [ ] T066 [P] [US4] Integration test: dashboard/campaign/call-detail/missed/qualified/unattributed report totals reconcile against underlying call records in `tests/Attribution.IntegrationTests/Reporting/ReportReconciliationTests.cs`
-- [ ] T067 [P] [US4] Integration test: CSV export contains the same rows, values, filters and period as the report it was generated from (FR-030) in `tests/Attribution.IntegrationTests/Reporting/CsvExportTests.cs`
-- [ ] T068 [P] [US4] Integration test: an Analyst-only user is refused on number pool/rule/user management, and the attempt is recorded (FR-031, FR-038) in `tests/Attribution.IntegrationTests/Reporting/RoleRestrictionTests.cs`
-- [ ] T069 [P] [US4] Integration test: the FR-048 coverage breakdown reconciles exactly with underlying call records (SC-018 evidence) in `tests/Attribution.IntegrationTests/Reporting/CoverageBreakdownTests.cs`
+- [X] T066 [P] [US4] Integration test: dashboard/campaign/call-detail/missed/qualified/unattributed report totals reconcile against underlying call records in `tests/Attribution.IntegrationTests/Reporting/ReportReconciliationTests.cs`
+- [X] T067 [P] [US4] Integration test: CSV export contains the same rows, values, filters and period as the report it was generated from (FR-030) in `tests/Attribution.IntegrationTests/Reporting/CsvExportTests.cs`
+- [X] T068 [P] [US4] Integration test: an Analyst-only user is refused on number pool/rule/user management, and the attempt is recorded (FR-031, FR-038) in `tests/Attribution.IntegrationTests/Reporting/RoleRestrictionTests.cs`
+- [X] T069 [P] [US4] Integration test: the FR-048 coverage breakdown reconciles exactly with underlying call records (SC-018 evidence) in `tests/Attribution.IntegrationTests/Reporting/CoverageBreakdownTests.cs`
 
 ### Implementation for User Story 4
 
-- [ ] T070 [US4] Implement `ReportingService` (dashboard, campaign performance, call detail search, missed, qualified, unattributed, FR-048 coverage) query layer in `src/Attribution.Application/Administration/ReportingService.cs` per FR-029, FR-048 (depends on T048, T063)
-- [ ] T071 [US4] Implement `GET /v1/reports/*` endpoints in `src/Attribution.Api/Controllers/ReportsController.cs` per contracts/reporting-api.md (depends on T070)
-- [ ] T072 [US4] Implement `GET /v1/reports/*/export.csv` endpoints reusing the report query results (FR-030) in `src/Attribution.Api/Controllers/ReportsController.cs` (depends on T071)
-- [ ] T073 [US4] Implement role-based report/export filtering (FR-031) in `src/Attribution.Api/Middleware/` or `ReportingService` (depends on T070, T016)
-- [ ] T118 [US4] Flag shadow-derived attributions and report shadow-mode ambiguity separately from ordinary ambiguity per FR-049 in `src/Attribution.Application/Administration/ReportingService.cs` (depends on T070, T115)
+- [X] T070 [US4] Implement `ReportingService` (dashboard, campaign performance, call detail search, missed, qualified, unattributed, FR-048 coverage) query layer in `src/Attribution.Application/Administration/ReportingService.cs` per FR-029, FR-048 (depends on T048, T063)
+- [X] T071 [US4] Implement `GET /v1/reports/*` endpoints in `src/Attribution.Api/Controllers/ReportsController.cs` per contracts/reporting-api.md (depends on T070)
+- [X] T072 [US4] Implement `GET /v1/reports/*/export.csv` endpoints reusing the report query results (FR-030) in `src/Attribution.Api/Controllers/ReportsController.cs` (depends on T071)
+- [X] T073 [US4] Implement role-based report/export filtering (FR-031) in `src/Attribution.Api/Middleware/` or `ReportingService` (depends on T070, T016)
+- [X] T118 [US4] Flag shadow-derived attributions and report shadow-mode ambiguity separately from ordinary ambiguity per FR-049 in `src/Attribution.Application/Administration/ReportingService.cs` (depends on T070, T115)
 
 **Checkpoint**: User Stories 1–4 all work independently.
 

@@ -75,10 +75,12 @@ builder.Services.AddScoped<IAttributionRepository, AttributionRepository>();
 builder.Services.AddScoped<IIngestionCheckpointRepository, IngestionCheckpointRepository>();
 builder.Services.AddScoped<IReviewCaseRepository, ReviewCaseRepository>();
 builder.Services.AddScoped<IQualificationRuleRepository, QualificationRuleRepository>();
+builder.Services.AddScoped<IReportingRepository, ReportingRepository>();
 builder.Services.AddScoped<Attribution.Application.Attribution.AttributionService>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<ShadowAllocationService>();
 builder.Services.AddScoped<RuleVersioningService>();
+builder.Services.AddScoped<ReportingService>();
 
 // --- Audit logging (T017, T018) ---
 builder.Services.AddHttpContextAccessor();
@@ -157,6 +159,7 @@ app.UseCors("DniClient");
 
 app.UseMiddleware<RateLimitingMiddleware>();
 
+app.UseMiddleware<AuthorizationFailureAuditMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<AuditLoggingMiddleware>();

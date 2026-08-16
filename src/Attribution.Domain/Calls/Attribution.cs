@@ -45,13 +45,17 @@ public class Attribution
         };
 
     // FR-021: more than one allocation window covered the call at its start time —
-    // never guessed between them, always raised for human review instead.
-    public static Attribution Ambiguous(Guid callId, string reason, DateTimeOffset decidedAt) =>
+    // never guessed between them, always raised for human review instead. FR-049: an
+    // overlap among shadow-derived observed windows is expected (the inserting system
+    // controls their re-use timing, not FR-006's cooldown) and must stay distinguishable
+    // from an overlap in ordinary operation, where it can only signal a defect.
+    public static Attribution Ambiguous(Guid callId, string reason, DateTimeOffset decidedAt, bool isShadowDerived = false) =>
         new()
         {
             CallId = callId,
             State = AttributionState.Ambiguous,
             Reason = reason,
+            IsShadowDerived = isShadowDerived,
             DecidedAt = decidedAt,
         };
 

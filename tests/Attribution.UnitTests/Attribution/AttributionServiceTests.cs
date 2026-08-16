@@ -17,10 +17,10 @@ public class AttributionServiceTests
 {
     private static readonly TimeSpan Extension = TimeSpan.FromMinutes(30);
 
-    private static DomainAllocation CoveringAllocation(DateTimeOffset callStart) =>
+    private static DomainAllocation CoveringAllocation(DateTimeOffset callStart, bool isShadow = false) =>
         DomainAllocation.Create(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            windowStart: callStart.AddMinutes(-5), sessionExpiresAt: callStart.AddMinutes(5), Extension);
+            windowStart: callStart.AddMinutes(-5), sessionExpiresAt: callStart.AddMinutes(5), Extension, isShadow);
 
     [Fact]
     public void NoCoveringAllocations_IsUnattributed()
@@ -74,6 +74,50 @@ public class AttributionServiceTests
         var decision = AttributionService.Decide(allocations);
 
         Assert.Equal(AttributionState.Ambiguous, decision.State);
+    }
+
+    // FR-049: shadow-mode allocations aren't governed by FR-006's cooldown, so their
+    // windows can genuinely overlap without that being a defect — and the resulting
+    // ambiguity must stay distinguishable from ordinary-operation ambiguity throughout
+    // reporting.
+    [Fact]
+    public void SingleShadowAllocation_IsAttributed_AndFlaggedAsShadowDerived()
+    {
+        var callStart = DateTimeOffset.UtcNow;
+        var allocation = CoveringAllocation(callStart, isShadow: true);
+
+        var decision = AttributionService.Decide(new List<DomainAllocation> { allocation });
+
+        Assert.Equal(AttributionState.Attributed, decision.State);
+        Assert.True(decision.IsShadowDerived);
+    }
+
+    [Fact]
+    public void OverlappingShadowAllocations_AreAmbiguous_WithAShadowSpecificReason()
+    {
+        var callStart = DateTimeOffset.UtcNow;
+        var first = CoveringAllocation(callStart, isShadow: true);
+        var second = CoveringAllocation(callStart, isShadow: true);
+
+        var decision = AttributionService.Decide(new List<DomainAllocation> { first, second });
+
+        Assert.Equal(AttributionState.Ambiguous, decision.State);
+        Assert.True(decision.IsShadowDerived);
+        Assert.Equal("shadow_mode_overlapping_observed_windows", decision.Reason);
+    }
+
+    [Fact]
+    public void OverlappingAllocationsWhereNotAllAreShadow_KeepsTheOrdinaryDefectSignalingReason()
+    {
+        var callStart = DateTimeOffset.UtcNow;
+        var ordinary = CoveringAllocation(callStart, isShadow: false);
+        var shadow = CoveringAllocation(callStart, isShadow: true);
+
+        var decision = AttributionService.Decide(new List<DomainAllocation> { ordinary, shadow });
+
+        Assert.Equal(AttributionState.Ambiguous, decision.State);
+        Assert.False(decision.IsShadowDerived);
+        Assert.Equal("multiple_allocation_windows_cover_call_start", decision.Reason);
     }
 }
 
