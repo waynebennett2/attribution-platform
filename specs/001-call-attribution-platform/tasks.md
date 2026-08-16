@@ -270,13 +270,13 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 - [X] T101 [P] Implement the data-subject erasure request endpoint, completing within the 30-day SC-019 bar in `src/Attribution.Api/Controllers/AdminPrivacyController.cs` per FR-039, SC-019 (depends on T123)
 - [X] T102 [P] Generate and publish OpenAPI documentation for every versioned endpoint per Constitution Principle III
 - [X] T103 [P] Propagate a correlation ID through structured logs end-to-end (allocation → attribution → qualification → publication) per FR-041
-- [ ] T104 Run every quickstart.md validation scenario end-to-end against a seeded environment
+- [X] T104 Run every quickstart.md validation scenario end-to-end against a seeded environment
 - [X] T105 [P] Security hardening pass: TLS enforcement, secret-scanning, dependency audit per Constitution Principle VI
 - [X] T106 [P] Performance/load test: DNI allocation at SC-004's peak (≈7 allocations/min + ≈50 heartbeats/min, 300ms p95) in `tests/Attribution.IntegrationTests/Performance/AllocationLoadTests.cs`
 - [X] T119 [P] Document and provision a multi-instance deployment topology (N API + N worker instances behind a load balancer, health-check-based instance removal) in `docker-compose.yml` / deployment docs per FR-043
 - [X] T120 Integration test: rerun SC-004's load test against 2+ concurrently running API instances with no shared in-process state, confirming identical latency/correctness in `tests/Attribution.IntegrationTests/Performance/HorizontalScaleTest.cs` per FR-043, SC-005 (depends on T119, T106)
 - [X] T121 Failover test: terminate one API instance mid-load and confirm zero failed allocation requests per SC-005 (depends on T119)
-- [ ] T107 Reconcile plan.md/data-model.md/contracts/ against any drift discovered during implementation
+- [X] T107 Reconcile plan.md/data-model.md/contracts/ against any drift discovered during implementation
 
 ---
 

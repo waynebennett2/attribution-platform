@@ -16,7 +16,7 @@ Replace Mediahawk with a standalone call attribution platform built on 8x8 Work:
 
 **Storage**: MySQL 8.0+ — mandated by the project constitution. 8.0+ specifically because atomic number allocation (FR-003) uses `SELECT ... FOR UPDATE SKIP LOCKED` semantics, only available from MySQL 8.0.1.
 
-**Testing**: xUnit for unit tests (Domain/Application layers, test-first per Principle V) and integration tests (MySQL via Testcontainers, 8x8/Google Ads/GA4 via recorded/mocked HTTP); Playwright for the DNI client's required browser-level tests (FR-008–FR-011, FR-039) covering multi-page and single-page-application replacement, session stickiness across tabs, post-load DOM mutation, consent grant/withdrawal, and fallback to the default number — no server-side test can evidence what a visitor's browser actually renders.
+**Testing**: xUnit for unit tests (Domain/Application layers, test-first per Principle V) and integration tests (8x8/Google Ads/GA4 via recorded/mocked HTTP). Integration tests run against the shared MySQL database that also serves production, not a disposable per-test Testcontainer as originally planned here — revised during implementation once that database's own connection details became available, on the reasoning that exercising the real target environment end-to-end outweighs the isolation a throwaway container would give, with data-isolation via randomized identifiers becoming each test's own responsibility since the schema is never reset between runs. Playwright for the DNI client's required browser-level tests (FR-008–FR-011, FR-039) covering multi-page and single-page-application replacement, session stickiness across tabs, post-load DOM mutation, consent grant/withdrawal, and fallback to the default number — no server-side test can evidence what a visitor's browser actually renders.
 
 **Target Platform**: Linux containers (Docker), deployed behind a load balancer; API and worker services are stateless and scale horizontally per FR-043, with no single point of failure in the visitor-facing allocation path.
 
@@ -39,7 +39,7 @@ Replace Mediahawk with a standalone call attribution platform built on 8x8 Work:
 | III | API-First | PASS | All capability — including what the reporting portal renders and what the DNI client calls — is exposed through versioned REST APIs (`/v1/...`), OpenAPI-documented. No shared DB access is granted to the portal or the client. |
 | IV | Idempotent, Auditable Operations | PASS | CDR/Call Leg ingestion and publication use natural/source keys with idempotent upserts and an outbox pattern (FR-017, FR-027, FR-045); every attribution decision stores its evidence (FR-019); every admin action writes to an immutable audit log (FR-035). |
 | V | Test-First for Business Logic (NON-NEGOTIABLE) | PASS (process gate, enforced at /speckit-tasks and code review) | Allocation, matching, qualification-rule evaluation land in the Domain/Application layers and are unit-testable in isolation from Dapper/HTTP; xUnit tests are required before/alongside implementation per Development Workflow §4. |
-| VI | Security by Default | PASS | TLS everywhere; JWT for interactive users (issued after OIDC federation, FR-046) and API keys for the Integration Service role; RBAC enforced server-side on every operation (FR-038); the DNI client's allocation endpoint is untrusted-origin-restricted and rate-limited rather than authenticated, since it cannot hold a secret (FR-037). |
+| VI | Security by Default | PASS | TLS everywhere; JWT for interactive users (issued after OIDC federation, FR-046); RBAC enforced server-side on every operation (FR-038, both via RbacPolicy's grant table and IntegrationServiceAccessMiddleware's explicit backstop); the DNI client's allocation endpoint is untrusted-origin-restricted and rate-limited rather than authenticated, since it cannot hold a secret (FR-037). API-key auth for the Integration Service role is designed for (the role, its RBAC denial, and its interactive-sign-in bar all exist) but has no concrete implementation — no user story ever required an inbound system-to-system HTTP endpoint for it to authenticate against, so there is nothing yet for an API key to protect. |
 | VII | Observable by Design | PASS | Structured logs/metrics/health checks trace a call end-to-end from allocation through attribution, qualification and publication (FR-041); ingestion lag, publication failure rate, allocation failure rate, pool utilisation and review-case age are all alertable (FR-047). |
 | VIII | Configuration Over Hardcoding | PASS | Number pool scoping, session timeout/heartbeat, qualification rules (including the new per-website/campaign scoping and time-of-day conditions), and retention periods are all administrator-configurable without code change (FR-004, FR-012, FR-023, FR-024, FR-040); rule changes never rewrite history (FR-024). |
 
@@ -115,7 +115,7 @@ client/
 
 tests/
 ├── Attribution.UnitTests/           # xUnit — Domain + Application, test-first per Principle V
-├── Attribution.IntegrationTests/    # xUnit — MySQL via Testcontainers, 8x8/Google Ads/GA4 mocked HTTP
+├── Attribution.IntegrationTests/    # xUnit — the shared MySQL database (not Testcontainers — see below), 8x8/Google Ads/GA4 mocked HTTP
 └── Attribution.Contract/            # API contract tests against contracts/
 ```
 

@@ -78,7 +78,9 @@ The binding of one Tracking Number to one Session for a bounded window — the s
 | id | anonymous, device/browser-scoped |
 | website_id | FK — a visitor is identified across sessions on **one** website |
 | first_seen_at | |
-| de_identified_at | nullable — set at the 14-month retention threshold (FR-040) |
+| de_identified_at | nullable — set at the 14-month retention threshold, or immediately on an FR-039 erasure request |
+
+**FR-039 erasure has no separate persisted "request" entity**: `POST /v1/admin/privacy/visitors/{id}/erase` (contracts/admin-api.md) performs the same de-identification transformation the 14-month sweep eventually would, synchronously, for one visitor regardless of age — completing trivially within FR-039's 30-day bar rather than needing a queued request/status workflow the spec never actually asks for. A call still under an open manual review case is left untouched by either path (FR-040's own carve-out), to be picked up once the review resolves.
 
 ## Session
 
@@ -96,6 +98,7 @@ The binding of one Tracking Number to one Session for a bounded window — the s
 | started_at | at consent grant if consent was pending at arrival (FR-039), else at first page view |
 | expires_at | rolling: `last_activity + session_timeout_seconds` (FR-012) |
 | ended_at | nullable — set on timeout or consent withdrawal |
+| de_identified_at | nullable — set at the 14-month retention threshold, alongside the utm_*/gclid/gbraid/wbraid/ga4_client_id/landing_page/referrer fields above being nulled (FR-040) |
 
 **Relationships**: one Session has zero-or-one active Allocation at a time (FR-010); a Session may have historical Allocations if it re-allocates after a mid-session change (e.g., consent-withdrawal-then-none, since re-grant would be a new session per FR-039's "create the session" language).
 
@@ -113,6 +116,7 @@ The binding of one Tracking Number to one Session for a bounded window — the s
 | disposition | answered \| missed \| ... |
 | is_final | false while 8x8 still reports the call as in-progress; re-ingestion of a non-final call re-derives attribution/qualification (FR-045) |
 | ingested_at, updated_at | |
+| de_identified_at | nullable — set at the 14-month threshold, when `caller_id` is overwritten in place with a stable HMAC surrogate rather than nulled, preserving the "same caller across calls" join FR-019's evidence chain and SC-014's report reconciliation depend on (FR-040, research.md §10) |
 
 **Relationships**: one Call has many Call Legs; one Call has zero-or-one current Attribution (plus superseded history, FR-045) and zero-or-one current Qualification Result (plus superseded history).
 
@@ -197,6 +201,7 @@ One attempt to report one qualified call to one destination.
 | last_error | nullable |
 | correction | nullable structured field: {type: retract\|adjust\|unpropagatable, reason, destination_accepted} (FR-044) |
 | sent_at, corrected_at | nullable |
+| de_identified_at | nullable — set at the same 14-month threshold as the Call it belongs to; `external_id` (the destination's own conversion/click identifier) is overwritten in place with a stable HMAC surrogate (FR-040) |
 
 **Idempotency**: the outbox worker (research.md §3) writes this row in the same transaction as the Qualification Result; the destination call is only made once `status` transitions from `pending`, and retries reuse the same `idempotency_key` so a crash-and-retry cannot double-publish (FR-027).
 
@@ -216,15 +221,19 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 | Field | Notes |
 |---|---|
 | id | |
-| subject_ref | nullable — IdP subject, null for break-glass accounts (FR-046) |
+| subject_ref | nullable — IdP subject, null for break-glass and integration-service accounts (FR-046) |
+| username | nullable — break-glass accounts only |
+| client_id | nullable — integration-service accounts only |
 | identity_type | federated \| break_glass \| integration_service |
 | mapped_role | System Administrator \| Marketing Administrator \| Analyst \| Integration Service |
 | role_override | nullable — administrator-set override of the mapped role, audited (FR-046) |
-| mfa_enrolled | required true for break_glass (FR-046) |
+| role_overridden_by | nullable — who applied the override |
+| password_hash, totp_secret | nullable — break-glass accounts only; a federated account never has either, since FR-046 requires the platform to never store a password for federated users |
+| mfa_required | true for break_glass (FR-046) |
 | is_active | |
 | created_at, last_seen_at | |
 
-**Constraint**: default of 2 `break_glass` rows, configurable (FR-046); `integration_service` identity_type is barred from interactive session issuance (FR-038).
+**Constraint**: default of 2 `break_glass` rows, configurable (FR-046); `integration_service` identity_type is barred from interactive session issuance (FR-038). No HTTP endpoint exists for federated sign-in itself — that path is the identity provider's own SSO flow redirecting back with an already-established session, which this repository has no live provider to exercise. The one interactive sign-in surface actually implemented is break-glass (`POST /v1/auth/break-glass/sign-in`, contracts/admin-api.md).
 
 ## Alert
 
@@ -241,6 +250,22 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 
 **Invariant**: one open Alert row per `(condition_type, scope_ref)` while firing — repeat notifications update `last_notified_at` on the existing row rather than creating a new Alert (FR-047).
 
+**Known simplification**: `allocation_failure_rate` is never evaluated — no allocation-attempt log exists anywhere in the schema (only successful Allocation rows are persisted, never failed attempts), so there is no failure signal to read for this specific condition. Documented rather than fabricated.
+
+## Notification Delivery Status
+
+Not part of spec.md's Key Entities — an operational-visibility addition, not a business entity. One row per delivery channel (`email`, `webhook`), upserted on every `AlertingWorker` send attempt.
+
+| Field | Notes |
+|---|---|
+| channel | email \| webhook (primary key) |
+| last_attempt_at | |
+| last_success_at | nullable |
+| last_failure_at | nullable |
+| last_failure_reason | nullable |
+
+**Rationale**: FR-047's "failure to deliver a notification MUST NOT suppress the underlying condition on the integration health view of FR-034" implies the reverse also needs to hold — a stuck delivery pipeline should itself be visible on the health view (`GET /v1/admin/health/notifications`, contracts/admin-api.md), independent of whether the alert conditions it would have notified about are themselves healthy.
+
 ## Audit Entry
 
 | Field | Notes |
@@ -253,6 +278,8 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 | occurred_at | |
 
 **Invariant**: append-only; no UPDATE/DELETE path exists at any role (FR-035) — enforced at the database-grant level, not just application logic, so that even a compromised admin session cannot alter history.
+
+**Retention**: purged after 7 years (FR-040's default, configurable), the one category FR-040 has purge without a de-identification step first — an audit entry has no "identifier to mask", only whether it still needs to exist.
 
 ## Review Case
 

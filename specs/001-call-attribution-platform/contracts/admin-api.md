@@ -2,6 +2,12 @@
 
 All endpoints require a platform-issued JWT (post-OIDC-federation or break-glass, FR-046) and enforce RBAC per FR-038. Every state-changing call writes an Audit Entry (FR-035) with actor, action, target, before/after values.
 
+## Authentication (FR-046)
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/v1/auth/break-glass/sign-in` | Unauthenticated — `{ username, password, totp_code }` → `{ access_token, expires_at }`. The one interactive sign-in endpoint actually implemented: federated sign-in is the identity provider's own SSO flow redirecting back with an already-established session, which this repository has no live provider to exercise. Every sign-in (success or failure) is audited as an exceptional event. |
+
 ## Number pools & numbers (FR-001–FR-007)
 
 | Method | Path | Notes |
@@ -34,6 +40,7 @@ All endpoints require a platform-issued JWT (post-OIDC-federation or break-glass
 | GET | `/v1/admin/health/ingestion` | last successful ingest time, current lag, per-feed checkpoint |
 | GET | `/v1/admin/health/publication` | success/failure counts per destination |
 | GET | `/v1/admin/health/pools` | per-pool utilisation vs. warning threshold |
+| GET | `/v1/admin/health/notifications` | per-channel (email/webhook) last delivery attempt/success/failure — FR-047's delivery-failure surfacing, distinct from whether the alert conditions themselves are healthy |
 
 ## Alerts (FR-047)
 
@@ -53,4 +60,10 @@ All endpoints require a platform-issued JWT (post-OIDC-federation or break-glass
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/v1/admin/audit?target_type=&target_id=&from=&to=` | read-only; no PUT/PATCH/DELETE exists on this resource by design |
+| GET | `/v1/admin/audit?target_type=&target_id=&from=&to=` | read-only; no PUT/PATCH/DELETE exists on this resource by design; every filter is independently optional |
+
+## Privacy (FR-039)
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/v1/admin/privacy/visitors/{id}/erase` | erases one visitor's data on request — synchronous, completing well within the 30-day SC-019 bar rather than a queued request/status workflow (data-model.md's Visitor section); a call still under an open manual review case is left untouched, per FR-040's own carve-out |
