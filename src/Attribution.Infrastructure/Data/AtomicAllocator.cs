@@ -36,6 +36,20 @@ public sealed class AtomicAllocator : IAtomicAllocator
             // blocks on this one; authority for "is it available" is the allocations table
             // itself (a covering-or-cooldown row means unavailable), not the denormalized
             // TrackingNumber.LastReleasedAt hint used only to order candidates.
+            //
+            // ORDER BY is a plain column (NULLs — never-released numbers — sort first in
+            // MySQL's ASC order, so this needs no CASE/boolean expression to get the same
+            // "prefer never-released, then oldest-released" preference) specifically so this
+            // resolves via IX_tracking_numbers_pool_status_released without a filesort.
+            // FOR UPDATE SKIP LOCKED's skip-and-keep-scanning behavior is only reliable
+            // against a straightforward index-ordered scan — under a filesort/materialized
+            // intermediate result (which the previous `ORDER BY (x IS NULL) DESC, x ASC`
+            // computed-expression form forced MySQL into), a transaction whose "top" sorted
+            // candidate happened to be locked would return zero rows instead of continuing
+            // on to the next unlocked candidate, which is genuinely observable under real
+            // concurrency: T120/T121's own load/failover tests reproduced it directly
+            // (roughly a third of concurrent requests reporting pool_exhausted despite
+            // plenty of genuinely free numbers) before this fix.
             var trackingNumberId = await connection.QuerySingleOrDefaultAsync<string>(
                 """
                 SELECT tn.id FROM tracking_numbers tn
@@ -46,7 +60,7 @@ public sealed class AtomicAllocator : IAtomicAllocator
                     WHERE a.tracking_number_id = tn.id
                       AND @Now < DATE_ADD(a.window_end, INTERVAL @CooldownSeconds SECOND)
                   )
-                ORDER BY (tn.last_released_at IS NULL) DESC, tn.last_released_at ASC
+                ORDER BY tn.last_released_at ASC
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
                 """,

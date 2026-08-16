@@ -18,5 +18,72 @@ services:
       timeout: 5s
       retries: 10
 
+  # --- FR-043: horizontal scale, no single point of failure in the allocation path ---
+  # Two Api replicas behind nginx (T119/T120/T121) — `docker compose up --scale api1=0
+  # api2=0` isn't how this is scaled; api1/api2 are separate named services specifically so
+  # each can be stopped/started independently for the SC-005 failover scenario (T121),
+  # which plain `--scale` on one service can't target individually.
+  api1: &api
+    build:
+      context: .
+      dockerfile: src/Attribution.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment: &api-environment
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      # Demo/local-compose convenience only — a real deployment applies migrations as an
+      # explicit step before starting any instance (see Program.cs's own comment on
+      # Migrations:RunOnStartup), not on every replica's boot.
+      Migrations__RunOnStartup: "true"
+      ConnectionStrings__AttributionDb: "Server=mysql;Port=3306;Database=attribution;User=attribution;Password=attribution_dev;"
+      Jwt__SigningSecret: ${JWT_SIGNING_SECRET:?Set JWT_SIGNING_SECRET in .env — see .env.example}
+      Jwt__Issuer: attribution-platform
+      Jwt__Audience: attribution-platform-api
+      Retention__HmacKey: ${RETENTION_HMAC_KEY:?Set RETENTION_HMAC_KEY in .env — see .env.example}
+
+  api2:
+    <<: *api
+    environment:
+      <<: *api-environment
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api1
+      - api2
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
+  worker1: &worker
+    build:
+      context: .
+      dockerfile: src/Attribution.Workers/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment: &worker-environment
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__AttributionDb: "Server=mysql;Port=3306;Database=attribution;User=attribution;Password=attribution_dev;"
+      Retention__HmacKey: ${RETENTION_HMAC_KEY:?Set RETENTION_HMAC_KEY in .env — see .env.example}
+
+  # Two replicas for redundancy (one can be stopped/restarted without an outage), not for
+  # request load-balancing — Workers has no inbound HTTP traffic to balance. KNOWN
+  # LIMITATION: IngestionWorker's checkpoint-advance and PublicationWorker's outbox drain
+  # aren't distributed-lock-protected, so two *simultaneously active* replicas racing the
+  # same feed/outbox is unverified and not recommended today — run worker2 as a cold
+  # standby (stopped, started only if worker1 is down) until that coordination exists,
+  # rather than both live at once.
+  worker2:
+    <<: *worker
+    environment:
+      <<: *worker-environment
+
 volumes:
   attribution-mysql-data:

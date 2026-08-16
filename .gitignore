@@ -32,6 +32,7 @@ playwright/.cache/
 # Environment / secrets
 .env
 .env.*
+!.env.example
 *.local.json
 appsettings.*.local.json
 

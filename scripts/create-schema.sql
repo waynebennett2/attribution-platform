@@ -302,7 +302,7 @@ CREATE TABLE `tracking_numbers` (
   `last_released_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_tracking_numbers_did` (`did`),
-  KEY `IX_tracking_numbers_pool_status` (`pool_id`,`status`),
+  KEY `IX_tracking_numbers_pool_status` (`pool_id`,`status`,`last_released_at`),
   CONSTRAINT `FK_tracking_numbers_pool` FOREIGN KEY (`pool_id`) REFERENCES `number_pools` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

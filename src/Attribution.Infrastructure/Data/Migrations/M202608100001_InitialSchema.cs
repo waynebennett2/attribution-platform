@@ -46,8 +46,13 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("last_released_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_tracking_numbers_pool").FromTable("tracking_numbers").ForeignColumn("pool_id")
             .ToTable("number_pools").PrimaryColumn("id");
+        // AtomicAllocator's candidate-selection query filters on (pool_id, status) and
+        // orders by last_released_at — this column is included specifically so that query
+        // resolves as a plain index-ordered scan rather than a filesort, which
+        // `FOR UPDATE SKIP LOCKED` needs to correctly keep scanning past a locked row
+        // instead of returning zero rows (see AtomicAllocator.cs's own comment).
         Create.Index("IX_tracking_numbers_pool_status").OnTable("tracking_numbers")
-            .OnColumn("pool_id").Ascending().OnColumn("status").Ascending();
+            .OnColumn("pool_id").Ascending().OnColumn("status").Ascending().OnColumn("last_released_at").Ascending();
 
         Create.Table("visitors")
             .WithColumn("id").AsString(36).PrimaryKey()
