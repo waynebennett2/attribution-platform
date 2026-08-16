@@ -3,47 +3,41 @@ using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
 using Attribution.Domain.Sessions;
 using Attribution.Infrastructure.Data;
-using Attribution.Infrastructure.Data.Migrations;
+using Attribution.IntegrationTests.TestSupport;
 using Dapper;
 using MySqlConnector;
-using Testcontainers.MySql;
 using Xunit;
 
 namespace Attribution.IntegrationTests.Attribution;
 
-// SC-001: exercises the full seeded-call scenario set against a real MySQL 8.0+ instance
-// (Testcontainers) — every outcome the acceptance test requires must land in the expected
-// state with retrievable evidence. Could not be executed in the sandboxed environment this
-// was authored in (Docker daemon unreachable) — verified by inspection/compilation only;
-// expected to run in CI/local dev.
+// SC-001: exercises the full seeded-call scenario set against the project's shared MySQL
+// database (TestSupport.TestDatabase — the same database production uses) — every outcome
+// the acceptance test requires must land in the expected state with retrievable evidence.
 public class SeededCallAttributionTests : IAsyncLifetime
 {
     private static readonly TimeSpan Extension = TimeSpan.FromMinutes(30);
 
-    private readonly MySqlContainer _mysql = new MySqlBuilder("mysql:8.0").Build();
     private AttributionService _attributionService = null!;
     private ICallRepository _callRepository = null!;
     private IAttributionRepository _attributionRepository = null!;
     private ITrackingNumberRepository _trackingNumberRepository = null!;
     private IAllocationRepository _allocationRepository = null!;
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-        await _mysql.StartAsync();
-        MigrationRunner.ApplyMigrations(_mysql.GetConnectionString());
-
-        var connectionFactory = new MySqlConnectionFactory(_mysql.GetConnectionString());
+        var connectionFactory = new MySqlConnectionFactory(TestDatabase.ConnectionString);
         _callRepository = new CallRepository(connectionFactory);
         _attributionRepository = new AttributionRepository(connectionFactory);
         _trackingNumberRepository = new TrackingNumberRepository(connectionFactory);
         _allocationRepository = new AllocationRepository(connectionFactory);
         _attributionService = new AttributionService(
             _trackingNumberRepository, _allocationRepository, _attributionRepository, new ReviewCaseRepository(connectionFactory));
+        return Task.CompletedTask;
     }
 
-    public async Task DisposeAsync() => await _mysql.DisposeAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task CallInsideTheAllocationWindow_IsAttributed()
@@ -89,7 +83,8 @@ public class SeededCallAttributionTests : IAsyncLifetime
     [Fact]
     public async Task CallToANumberNeverAllocated_IsUnattributed()
     {
-        var attribution = await AttributeCallAsync("sc001-never-allocated", "+441632960099", DateTimeOffset.UtcNow);
+        var neverAllocatedDid = $"+4416329{Random.Shared.Next(70000, 79999)}";
+        var attribution = await AttributeCallAsync("sc001-never-allocated", neverAllocatedDid, DateTimeOffset.UtcNow);
 
         Assert.Equal(AttributionState.Unattributed, attribution.State);
         Assert.Equal("number_never_allocated", attribution.Reason);
@@ -141,10 +136,13 @@ public class SeededCallAttributionTests : IAsyncLifetime
         Assert.Equal(sessionId, attribution.SessionId);
     }
 
-    private async Task<Domain.Calls.Attribution> AttributeCallAsync(string sourceRecordId, string did, DateTimeOffset startedAt)
+    // sourceRecordIdPrefix + a fresh guid: calls.source_record_id is UNIQUE, and this is a
+    // shared, persistent database rather than a disposable per-run container, so a literal
+    // constant would collide with a prior test run's still-present row.
+    private async Task<Domain.Calls.Attribution> AttributeCallAsync(string sourceRecordIdPrefix, string did, DateTimeOffset startedAt)
     {
         var call = Call.Create(
-            sourceRecordId, CallDirection.Inbound, did, callerId: "+441632960999",
+            $"{sourceRecordIdPrefix}-{Guid.NewGuid()}", CallDirection.Inbound, did, callerId: "+441632960999",
             startedAt, answeredAt: null, endedAt: null, connectedDurationSeconds: null,
             disposition: null, isFinal: false, ingestedAt: DateTimeOffset.UtcNow);
         await _callRepository.AddAsync(call);
@@ -179,7 +177,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
     private async Task<Guid> SeedWebsiteAsync()
     {
         var id = Guid.NewGuid();
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         await connection.ExecuteAsync(
             """
@@ -198,7 +196,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
     private async Task<Guid> SeedPoolAsync()
     {
         var id = Guid.NewGuid();
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         await connection.ExecuteAsync(
             "INSERT INTO number_pools (id, name, scope_type, scope_ref, created_at, updated_at) VALUES (@Id, 'Test Pool', 'website', @Id, UTC_TIMESTAMP(), UTC_TIMESTAMP())",
@@ -208,7 +206,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
 
     private async Task SeedTrackingNumberAsync(Guid poolId, string did)
     {
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         await connection.ExecuteAsync(
             "INSERT INTO tracking_numbers (id, pool_id, did, status, status_changed_at) VALUES (@Id, @PoolId, @Did, 'Active', UTC_TIMESTAMP())",
@@ -218,7 +216,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
     private async Task<Guid> SeedVisitorAsync(Guid websiteId)
     {
         var id = Guid.NewGuid();
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         await connection.ExecuteAsync(
             "INSERT INTO visitors (id, website_id, first_seen_at) VALUES (@Id, @WebsiteId, UTC_TIMESTAMP())",
@@ -229,7 +227,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
     private async Task<Guid> SeedSessionAsync(Guid visitorId, Guid websiteId, DateTimeOffset expiresAt)
     {
         var id = Guid.NewGuid();
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         await connection.ExecuteAsync(
             """

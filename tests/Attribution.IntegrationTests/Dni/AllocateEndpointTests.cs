@@ -1,43 +1,36 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using Attribution.Infrastructure.Data.Migrations;
+using Attribution.IntegrationTests.TestSupport;
 using Microsoft.AspNetCore.Mvc.Testing;
 using MySqlConnector;
-using Testcontainers.MySql;
 using Xunit;
 
 namespace Attribution.IntegrationTests.Dni;
 
-// FR-003, FR-011: exercises POST /v1/dni/allocate end to end against a real MySQL 8.0+
-// instance (Testcontainers), including the pool-exhausted fallback. Could not be
-// executed in the sandboxed environment this was authored in (Docker daemon
-// unreachable) — verified by inspection/compilation only; expected to run in CI/local dev.
+// FR-003, FR-011: exercises POST /v1/dni/allocate end to end against the project's shared
+// MySQL database (TestSupport.TestDatabase — the same database production uses, per the
+// project's testing convention), including the pool-exhausted fallback.
 public class AllocateEndpointTests : IAsyncLifetime
 {
-    private readonly MySqlContainer _mysql = new MySqlBuilder("mysql:8.0").Build();
     private WebApplicationFactory<Program> _factory = null!;
     private HttpClient _client = null!;
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
-        await _mysql.StartAsync();
-        MigrationRunner.ApplyMigrations(_mysql.GetConnectionString());
-
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.UseSetting("ConnectionStrings:AttributionDb", _mysql.GetConnectionString());
             builder.UseSetting("Jwt:SigningSecret", "integration-test-signing-secret-at-least-32-characters");
             builder.UseSetting("Jwt:Issuer", "attribution-platform-tests");
             builder.UseSetting("Jwt:Audience", "attribution-platform-tests");
         });
         _client = _factory.CreateClient();
+        return Task.CompletedTask;
     }
 
     public async Task DisposeAsync()
     {
         _client.Dispose();
         await _factory.DisposeAsync();
-        await _mysql.DisposeAsync();
     }
 
     [Fact]
@@ -45,12 +38,12 @@ public class AllocateEndpointTests : IAsyncLifetime
     {
         var websiteId = await SeedWebsiteAsync(defaultNumber: "+15550000000");
         var poolId = await SeedPoolAsync(websiteId);
-        await SeedTrackingNumberAsync(poolId, "+15551234567");
+        var did = await SeedTrackingNumberAsync(poolId);
 
         var response = await _client.PostAsJsonAsync("/v1/dni/allocate", new
         {
             website_id = websiteId.ToString(),
-            client_token = "client-1",
+            client_token = $"client-{Guid.NewGuid()}",
             consent_granted = true,
             landing_page = "https://example.com/",
             utm = new { source = "google", medium = "cpc", campaign = "spring" },
@@ -61,7 +54,7 @@ public class AllocateEndpointTests : IAsyncLifetime
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         Assert.False(string.IsNullOrEmpty(body.GetProperty("session_id").GetString()));
-        Assert.Equal("+15551234567", body.GetProperty("number").GetString());
+        Assert.Equal(did, body.GetProperty("number").GetString());
     }
 
     [Fact]
@@ -72,7 +65,7 @@ public class AllocateEndpointTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/v1/dni/allocate", new
         {
             website_id = websiteId.ToString(),
-            client_token = "client-2",
+            client_token = $"client-{Guid.NewGuid()}",
             consent_granted = false,
         });
 
@@ -94,7 +87,7 @@ public class AllocateEndpointTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/v1/dni/allocate", new
         {
             website_id = websiteId.ToString(),
-            client_token = "client-3",
+            client_token = $"client-{Guid.NewGuid()}",
             consent_granted = true,
         });
 
@@ -109,7 +102,7 @@ public class AllocateEndpointTests : IAsyncLifetime
     private async Task<Guid> SeedWebsiteAsync(string defaultNumber)
     {
         var id = Guid.NewGuid();
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         var command = connection.CreateCommand();
         command.CommandText = """
@@ -130,7 +123,7 @@ public class AllocateEndpointTests : IAsyncLifetime
     private async Task<Guid> SeedPoolAsync(Guid websiteId)
     {
         var id = Guid.NewGuid();
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         var command = connection.CreateCommand();
         command.CommandText = """
@@ -143,9 +136,12 @@ public class AllocateEndpointTests : IAsyncLifetime
         return id;
     }
 
-    private async Task SeedTrackingNumberAsync(Guid poolId, string did)
+    // Returns the DID it generated — a shared, persistent database means a hard-coded DID
+    // across test runs would collide with a prior run's still-present row.
+    private async Task<string> SeedTrackingNumberAsync(Guid poolId)
     {
-        await using var connection = new MySqlConnection(_mysql.GetConnectionString());
+        var did = $"+44163{Random.Shared.Next(2900000, 2999999)}";
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         var command = connection.CreateCommand();
         command.CommandText = """
@@ -156,5 +152,6 @@ public class AllocateEndpointTests : IAsyncLifetime
         command.Parameters.AddWithValue("@poolId", poolId.ToString());
         command.Parameters.AddWithValue("@did", did);
         await command.ExecuteNonQueryAsync();
+        return did;
     }
 }

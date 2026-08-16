@@ -2,10 +2,9 @@ using Attribution.Application.Attribution;
 using Attribution.Application.Ingestion;
 using Attribution.Domain.Calls;
 using Attribution.Infrastructure.Data;
-using Attribution.Infrastructure.Data.Migrations;
+using Attribution.IntegrationTests.TestSupport;
 using Dapper;
 using MySqlConnector;
-using Testcontainers.MySql;
 using Xunit;
 
 namespace Attribution.IntegrationTests.Ingestion;
@@ -13,27 +12,25 @@ namespace Attribution.IntegrationTests.Ingestion;
 // SC-002: re-ingesting an identical batch three times must produce zero change in any
 // report total — here measured directly against the underlying Call/Attribution/Call Leg
 // counts a report would reconcile against, since reporting itself (User Story 4) doesn't
-// exist yet. Could not be executed in the sandboxed environment this was authored in
-// (Docker daemon unreachable) — verified by inspection/compilation only; expected to run
-// in CI/local dev.
+// exist yet. Runs against the project's shared MySQL database (TestSupport.TestDatabase —
+// the same database production uses), so assertions compare count *deltas* rather than
+// absolute counts: the table is never empty at the start of a run the way a disposable
+// per-test container's would be.
 public class IdempotentReingestionTests : IAsyncLifetime
 {
-    private const string Feed = "8x8-cdr";
-    private const string Did = "+441632960050";
+    // feed is varchar(32) — keep the unique suffix short.
+    private readonly string _feed = $"test-{Guid.NewGuid():N}"[..32];
+    private readonly string _did = $"+4416329{Random.Shared.Next(30000, 39999)}";
+    private readonly string _sourceRecordId = $"sc002-call-{Guid.NewGuid()}";
+    private readonly string _sourceLegId = $"sc002-leg-{Guid.NewGuid()}";
 
-    private readonly MySqlContainer _mysql = new MySqlBuilder("mysql:8.0").Build();
     private IngestionService _ingestionService = null!;
-    private string _connectionString = null!;
 
     public async Task InitializeAsync()
     {
         DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-        await _mysql.StartAsync();
-        _connectionString = _mysql.GetConnectionString();
-        MigrationRunner.ApplyMigrations(_connectionString);
-
-        var connectionFactory = new MySqlConnectionFactory(_connectionString);
+        var connectionFactory = new MySqlConnectionFactory(TestDatabase.ConnectionString);
         var callRepository = new CallRepository(connectionFactory);
         var callLegRepository = new CallLegRepository(connectionFactory);
         var checkpointRepository = new IngestionCheckpointRepository(connectionFactory);
@@ -47,7 +44,7 @@ public class IdempotentReingestionTests : IAsyncLifetime
         await SeedAllocatedTrackingNumberAsync();
     }
 
-    public async Task DisposeAsync() => await _mysql.DisposeAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task ReingestingAnIdenticalBatchThreeTimes_LeavesEveryUnderlyingCountUnchanged()
@@ -65,40 +62,49 @@ public class IdempotentReingestionTests : IAsyncLifetime
             new[]
             {
                 new Analytics8x8CallRecord(
-                    "sc002-call-1", CallDirection.Inbound, Did, "+441632960999", startedAt,
+                    _sourceRecordId, CallDirection.Inbound, _did, "+441632960999", startedAt,
                     startedAt.AddSeconds(2), startedAt.AddSeconds(90), 88, "answered", IsFinal: true),
             },
-            new[] { new Analytics8x8CallLegRecord("sc002-call-1", "leg-1", "primary", startedAt, startedAt.AddSeconds(90)) },
+            new[] { new Analytics8x8CallLegRecord(_sourceRecordId, _sourceLegId, "primary", startedAt, startedAt.AddSeconds(90)) },
             NextCheckpointPosition: "pos-1");
 
-        await _ingestionService.ProcessPageAsync(Feed, page, DateTimeOffset.UtcNow);
+        var (callsBefore, legsBefore, attributionsBefore) = await CountRowsAsync();
+
+        await _ingestionService.ProcessPageAsync(_feed, page, DateTimeOffset.UtcNow);
         var (callsAfterFirst, legsAfterFirst, attributionsAfterFirst) = await CountRowsAsync();
 
-        await _ingestionService.ProcessPageAsync(Feed, page, DateTimeOffset.UtcNow);
-        await _ingestionService.ProcessPageAsync(Feed, page, DateTimeOffset.UtcNow);
+        await _ingestionService.ProcessPageAsync(_feed, page, DateTimeOffset.UtcNow);
+        await _ingestionService.ProcessPageAsync(_feed, page, DateTimeOffset.UtcNow);
         var (callsAfterThree, legsAfterThree, attributionsAfterThree) = await CountRowsAsync();
 
-        Assert.Equal(1, callsAfterFirst);
-        Assert.Equal(1, legsAfterFirst);
-        Assert.Equal(1, attributionsAfterFirst);
+        Assert.Equal(callsBefore + 1, callsAfterFirst);
+        Assert.Equal(legsBefore + 1, legsAfterFirst);
+        Assert.Equal(attributionsBefore + 1, attributionsAfterFirst);
         Assert.Equal(callsAfterFirst, callsAfterThree);
         Assert.Equal(legsAfterFirst, legsAfterThree);
         Assert.Equal(attributionsAfterFirst, attributionsAfterThree);
     }
 
+    // Scoped to this test's own source_record_id rather than a bare table-wide COUNT(*) —
+    // the shared database has other tests' rows in it, potentially concurrently (xUnit
+    // parallelizes across test classes by default), so a table-wide count would be racy.
     private async Task<(int Calls, int CallLegs, int Attributions)> CountRowsAsync()
     {
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
-        var calls = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM calls");
-        var legs = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM call_legs");
-        var attributions = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM attributions");
+        var calls = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM calls WHERE source_record_id = @Id", new { Id = _sourceRecordId });
+        var legs = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM call_legs WHERE source_call_record_id = @Id", new { Id = _sourceRecordId });
+        var attributions = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM attributions WHERE call_id = (SELECT id FROM calls WHERE source_record_id = @Id)",
+            new { Id = _sourceRecordId });
         return (calls, legs, attributions);
     }
 
     private async Task SeedAllocatedTrackingNumberAsync()
     {
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
 
         var websiteId = Guid.NewGuid();
@@ -122,7 +128,7 @@ public class IdempotentReingestionTests : IAsyncLifetime
         var trackingNumberId = Guid.NewGuid();
         await connection.ExecuteAsync(
             "INSERT INTO tracking_numbers (id, pool_id, did, status, status_changed_at) VALUES (@Id, @PoolId, @Did, 'Active', UTC_TIMESTAMP())",
-            new { Id = trackingNumberId.ToString(), PoolId = poolId.ToString(), Did = Did });
+            new { Id = trackingNumberId.ToString(), PoolId = poolId.ToString(), Did = _did });
 
         var visitorId = Guid.NewGuid();
         await connection.ExecuteAsync(
