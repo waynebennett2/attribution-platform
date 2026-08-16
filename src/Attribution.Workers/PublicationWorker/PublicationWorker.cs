@@ -82,6 +82,13 @@ public sealed class PublicationWorker : BackgroundService
             }
 
             await repository.UpdateAsync(publication);
+            // FR-041: the publication-stage log line in the allocation -> attribution ->
+            // qualification -> publication trace — correlates back to IngestionService's
+            // own per-call log line by CallId, the one identifier stable across every stage
+            // from the point a call is actually ingested onward.
+            _logger.LogInformation(
+                "Published call {CallId} to {Destination} ({PublicationId}, external id {ExternalId})",
+                item.CallId, publication.Destination, publication.Id, publication.ExternalId);
         }
         catch (Exception ex)
         {
@@ -91,8 +98,8 @@ public sealed class PublicationWorker : BackgroundService
             publication.MarkFailed(ex.Message);
             await repository.UpdateAsync(publication);
             _logger.LogWarning(
-                ex, "Publication attempt failed for {Destination} (attempt {Attempt})",
-                publication.Destination, publication.AttemptCount);
+                ex, "Publication attempt failed for call {CallId}, {Destination} ({PublicationId}, attempt {Attempt})",
+                item.CallId, publication.Destination, publication.Id, publication.AttemptCount);
         }
     }
 }

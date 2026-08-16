@@ -6,6 +6,7 @@ using Attribution.Domain.Calls;
 using Attribution.Infrastructure.Data;
 using Attribution.IntegrationTests.TestSupport;
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
 using Xunit;
 
@@ -52,9 +53,11 @@ public class IdempotentReingestionTests : IAsyncLifetime
         var correctionService = new CorrectionService(publicationRepository, sessionRepository, new NoOpGoogleAdsClient(), auditLogger);
 
         var reDerivationService = new ReDerivationService(
-            callRepository, attributionRepository, qualificationResultRepository, attributionService, qualificationService, correctionService);
+            callRepository, attributionRepository, qualificationResultRepository, attributionService, qualificationService, correctionService,
+            NullLogger<ReDerivationService>.Instance);
         _ingestionService = new IngestionService(
-            callRepository, callLegRepository, checkpointRepository, attributionService, reDerivationService, qualificationService);
+            callRepository, callLegRepository, checkpointRepository, attributionService, reDerivationService, qualificationService,
+            NullLogger<IngestionService>.Instance);
 
         await SeedAllocatedTrackingNumberAsync();
     }

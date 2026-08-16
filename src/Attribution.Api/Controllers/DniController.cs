@@ -15,15 +15,18 @@ public sealed class DniController : ControllerBase
     private readonly AllocationService _allocationService;
     private readonly ShadowAllocationService _shadowAllocationService;
     private readonly IWebsiteRepository _websiteRepository;
+    private readonly ILogger<DniController> _logger;
 
     public DniController(
         AllocationService allocationService,
         ShadowAllocationService shadowAllocationService,
-        IWebsiteRepository websiteRepository)
+        IWebsiteRepository websiteRepository,
+        ILogger<DniController> logger)
     {
         _allocationService = allocationService;
         _shadowAllocationService = shadowAllocationService;
         _websiteRepository = websiteRepository;
+        _logger = logger;
     }
 
     [HttpPost("allocate")]
@@ -43,8 +46,25 @@ public sealed class DniController : ControllerBase
 
         var arrival = ToArrivalDetails(request);
         var result = await _allocationService.AllocateAsync(websiteId, request.ConsentGranted, arrival, DateTimeOffset.UtcNow);
+        LogAllocationOutcome(websiteId, result);
 
         return Ok(ToDto(result));
+    }
+
+    // FR-041: the allocation-stage log line in the allocation -> attribution ->
+    // qualification -> publication trace. SessionId is the join key a later
+    // IngestionService log line for the same call will also carry (via Attribution.SessionId),
+    // since no Call — and therefore no CallId — exists yet at allocation time.
+    private void LogAllocationOutcome(Guid websiteId, AllocateResult result)
+    {
+        if (result.SessionId is null)
+        {
+            _logger.LogInformation("Allocation fell back to the default number for website {WebsiteId}: {Reason}", websiteId, result.Reason);
+            return;
+        }
+
+        _logger.LogInformation(
+            "Allocated {Number} to session {SessionId} for website {WebsiteId}", result.Number, result.SessionId, websiteId);
     }
 
     [HttpPost("heartbeat")]

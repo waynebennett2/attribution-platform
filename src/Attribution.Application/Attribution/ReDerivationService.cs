@@ -2,6 +2,7 @@ using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Qualification;
+using Microsoft.Extensions.Logging;
 using DomainAttribution = Attribution.Domain.Calls.Attribution;
 
 namespace Attribution.Application.Attribution;
@@ -24,6 +25,7 @@ public sealed class ReDerivationService
     private readonly AttributionService _attributionService;
     private readonly QualificationService _qualificationService;
     private readonly CorrectionService _correctionService;
+    private readonly ILogger<ReDerivationService> _logger;
 
     public ReDerivationService(
         ICallRepository callRepository,
@@ -31,7 +33,8 @@ public sealed class ReDerivationService
         IQualificationResultRepository qualificationResultRepository,
         AttributionService attributionService,
         QualificationService qualificationService,
-        CorrectionService correctionService)
+        CorrectionService correctionService,
+        ILogger<ReDerivationService> logger)
     {
         _callRepository = callRepository;
         _attributionRepository = attributionRepository;
@@ -39,6 +42,7 @@ public sealed class ReDerivationService
         _attributionService = attributionService;
         _qualificationService = qualificationService;
         _correctionService = correctionService;
+        _logger = logger;
     }
 
     public async Task<DomainAttribution?> ReDeriveIfChangedAsync(Call call, Analytics8x8CallRecord record, DateTimeOffset now)
@@ -79,6 +83,12 @@ public sealed class ReDerivationService
         }
 
         await _correctionService.CorrectIfNeededAsync(call, attribution, previousQualification, newQualification, now);
+
+        // FR-041: the re-derivation path's own trace line, correlated by the same CallId
+        // an earlier ingestion-time log line (IngestionService) would have used.
+        _logger.LogInformation(
+            "Re-derived call {CallId}: attribution={AttributionState} allocationId={AllocationId} qualified={Qualified}",
+            call.Id, attribution.State, attribution.AllocationId, newQualification?.IsQualified);
 
         return attribution;
     }

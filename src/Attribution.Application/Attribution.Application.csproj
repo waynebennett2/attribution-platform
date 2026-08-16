@@ -4,6 +4,15 @@
     <ProjectReference Include="..\Attribution.Domain\Attribution.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- FR-041: structured logging is a cross-cutting abstraction, not an Infrastructure
+         concern in the sense Constitution Principle II is guarding against (databases,
+         HTTP clients, frameworks) — the same reasoning that already lets Application take
+         IAuditLogger/IActorContext directly. Abstractions-only package, no concrete logging
+         provider, so this stays framework-free in the sense that matters. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

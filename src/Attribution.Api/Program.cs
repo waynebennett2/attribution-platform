@@ -43,9 +43,37 @@ builder.Logging.AddJsonConsole();
 // Add services to the container.
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Constitution Principle III (API-First): every backend capability is exposed through
+// versioned REST APIs, so this generated document is the actual interface contract for
+// every consumer (reporting frontend, DNI client, future portals) — not merely a
+// developer convenience. A static snapshot is published to docs/openapi.json (T102);
+// regenerate it by running the API in Development and saving the response of
+// GET /swagger/v1/swagger.json whenever an endpoint's shape changes.
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Call Attribution Platform API",
+        Version = "v1",
+        Description = "Deterministic call attribution: number allocation, ingestion, qualification, publication and administration. "
+            + "See specs/001-call-attribution-platform/contracts/ for the narrative wire contracts this schema implements.",
+    });
+
+    // Every admin/report endpoint requires the platform-issued JWT (FR-037); this lets
+    // Swagger UI's "Authorize" button attach one, matching how a real consumer calls in.
+    var bearerScheme = new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Reference = new Microsoft.OpenApi.Models.OpenApiReference { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" },
+    };
+    options.AddSecurityDefinition("Bearer", bearerScheme);
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement { [bearerScheme] = Array.Empty<string>() });
+});
 
 // FR-037: the /v1/dni/* endpoints are unauthenticated and called from the visitor's
 // browser on the customer's own website — a different origin than this API — so the
@@ -190,6 +218,15 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+else
+{
+    // Constitution Principle VI: "All endpoints require TLS." HSTS tells the browser to
+    // upgrade every future request itself, so a stray plain-HTTP link or bookmark can
+    // never even reach the redirect below in the first place. Skipped in Development,
+    // where the local cert is often self-signed and HSTS's caching would be a nuisance
+    // to clear.
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();

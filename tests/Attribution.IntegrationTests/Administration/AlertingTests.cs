@@ -62,7 +62,7 @@ public class AlertingTests : IAsyncLifetime
     public async Task BreachedCondition_Raises_ThenRepeatsOnTheSameRow_ThenClearsOnceHealthy()
     {
         var raisedEvents = await _alertingService.EvaluateAsync(DateTimeOffset.UtcNow);
-        var reviewCaseRaised = Assert.Single(raisedEvents.Where(e => e.Alert.ScopeRef == _reviewCaseId.ToString()));
+        var reviewCaseRaised = Assert.Single(raisedEvents, e => e.Alert.ScopeRef == _reviewCaseId.ToString());
         Assert.Equal(AlertEventStatus.Raised, reviewCaseRaised.Status);
         var alertId = reviewCaseRaised.Alert.Id;
 
@@ -75,7 +75,7 @@ public class AlertingTests : IAsyncLifetime
         // Simulate the repeat interval having elapsed.
         await BackdateLastNotifiedAsync(alertId, DateTimeOffset.UtcNow.AddHours(-2));
         var repeatPass = await _alertingService.EvaluateAsync(DateTimeOffset.UtcNow);
-        var repeated = Assert.Single(repeatPass.Where(e => e.Alert.ScopeRef == _reviewCaseId.ToString()));
+        var repeated = Assert.Single(repeatPass, e => e.Alert.ScopeRef == _reviewCaseId.ToString());
         Assert.Equal(AlertEventStatus.Repeated, repeated.Status);
         Assert.Equal(alertId, repeated.Alert.Id); // same row — not a new alert (FR-047)
         Assert.Equal(1, await CountOpenAlertsAsync(AlertConditionType.ReviewCaseAge, _reviewCaseId.ToString()));

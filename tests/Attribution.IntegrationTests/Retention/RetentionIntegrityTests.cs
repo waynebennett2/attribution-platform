@@ -63,7 +63,7 @@ public class RetentionIntegrityTests : IAsyncLifetime
         var callIdText = callId.ToString();
 
         var before = await _reportingService.CallsAsync(reportDay, reportDay, state: null, q: null);
-        var beforeRow = Assert.Single(before.Rows.Where(r => (string)r["call_id"]! == callIdText));
+        var beforeRow = Assert.Single(before.Rows, r => (string)r["call_id"]! == callIdText);
         Assert.Equal(originalCallerId, beforeRow["caller_id"]);
 
         await _retentionRepository.DeIdentifyCallAsync(callId, "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd", now);
@@ -71,7 +71,7 @@ public class RetentionIntegrityTests : IAsyncLifetime
         var after = await _reportingService.CallsAsync(reportDay, reportDay, state: null, q: null);
         Assert.Equal(before.Rows.Count, after.Rows.Count);
         Assert.Equal(before.Totals, after.Totals);
-        var afterRow = Assert.Single(after.Rows.Where(r => (string)r["call_id"]! == callIdText));
+        var afterRow = Assert.Single(after.Rows, r => (string)r["call_id"]! == callIdText);
         Assert.NotEqual(originalCallerId, afterRow["caller_id"]);
     }
 

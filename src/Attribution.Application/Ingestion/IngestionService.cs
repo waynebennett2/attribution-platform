@@ -1,6 +1,7 @@
 using Attribution.Application.Attribution;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
+using Microsoft.Extensions.Logging;
 
 namespace Attribution.Application.Ingestion;
 
@@ -18,6 +19,7 @@ public sealed class IngestionService
     private readonly AttributionService _attributionService;
     private readonly ReDerivationService _reDerivationService;
     private readonly QualificationService _qualificationService;
+    private readonly ILogger<IngestionService> _logger;
 
     public IngestionService(
         ICallRepository callRepository,
@@ -25,7 +27,8 @@ public sealed class IngestionService
         IIngestionCheckpointRepository checkpointRepository,
         AttributionService attributionService,
         ReDerivationService reDerivationService,
-        QualificationService qualificationService)
+        QualificationService qualificationService,
+        ILogger<IngestionService> logger)
     {
         _callRepository = callRepository;
         _callLegRepository = callLegRepository;
@@ -33,6 +36,7 @@ public sealed class IngestionService
         _attributionService = attributionService;
         _reDerivationService = reDerivationService;
         _qualificationService = qualificationService;
+        _logger = logger;
     }
 
     // Processes one polled page and, if the caller wants the named feed's checkpoint
@@ -78,10 +82,21 @@ public sealed class IngestionService
             }
 
             var attribution = await _attributionService.AttributeAsync(call, now);
+            var qualified = (bool?)null;
             if (attribution.State == Domain.Calls.AttributionState.Attributed)
             {
-                await _qualificationService.QualifyAsync(call, attribution, now);
+                var result = await _qualificationService.QualifyAsync(call, attribution, now);
+                qualified = result.IsQualified;
             }
+
+            // FR-041: the one log line that ties allocation, attribution and qualification
+            // together for a freshly-ingested call — AllocationId is the same value logged
+            // when the number was first allocated (AllocationService), so grepping either
+            // ID finds the other stage. Publication's own outcome is a later, separate
+            // worker tick (PublicationWorker), correlated back to this by CallId.
+            _logger.LogInformation(
+                "Ingested call {CallId} ({SourceRecordId}): attribution={AttributionState} allocationId={AllocationId} sessionId={SessionId} qualified={Qualified}",
+                call.Id, call.SourceRecordId, attribution.State, attribution.AllocationId, attribution.SessionId, qualified);
             return;
         }
 

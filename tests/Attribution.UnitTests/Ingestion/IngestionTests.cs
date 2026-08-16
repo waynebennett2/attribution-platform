@@ -6,6 +6,7 @@ using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Qualification;
 using Attribution.UnitTests.TestSupport;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Attribution.UnitTests.Ingestion;
@@ -39,8 +40,10 @@ public class IngestionTests
             new FakeConversionPublicationRepository(), new FakeSessionRepository(), new FakeGoogleAdsClient(), new FakeAuditLogger());
 
         var reDerivationService = new ReDerivationService(
-            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService, correctionService);
-        var service = new IngestionService(calls, legs, checkpoints, attributionService, reDerivationService, qualificationService);
+            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService, correctionService,
+            NullLogger<ReDerivationService>.Instance);
+        var service = new IngestionService(
+            calls, legs, checkpoints, attributionService, reDerivationService, qualificationService, NullLogger<IngestionService>.Instance);
         return (service, calls, legs, checkpoints, attributions);
     }
 

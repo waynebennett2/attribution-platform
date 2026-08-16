@@ -6,6 +6,7 @@ using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
 using Attribution.Domain.Qualification;
 using Attribution.UnitTests.TestSupport;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using DomainAllocation = Attribution.Domain.Sessions.Allocation;
 using DomainAttribution = Attribution.Domain.Calls.Attribution;
@@ -46,7 +47,8 @@ public class ReDerivationTests
             new FakeConversionPublicationRepository(), new FakeSessionRepository(), new FakeGoogleAdsClient(), new FakeAuditLogger());
 
         var reDerivationService = new ReDerivationService(
-            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService, correctionService);
+            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService, correctionService,
+            NullLogger<ReDerivationService>.Instance);
         return (reDerivationService, calls, attributions);
     }
 
