@@ -264,10 +264,10 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 **Purpose**: Retention/erasure, documentation, and platform-wide hardening that spans every user story.
 
-- [ ] T122 [P] Integration test: run the retention purge against a seeded historical dataset spanning the 14/25-month thresholds, confirming identifiers are gone and report totals for that period reconcile identically before/after (SC-014) in `tests/Attribution.IntegrationTests/Retention/RetentionIntegrityTests.cs`
-- [ ] T100 [P] Implement the `RetentionWorker` loop (14/25-month tiered de-identification via a stable HMAC surrogate, 7-year audit retention, open-review-case exception) in `src/Attribution.Workers/RetentionWorker/` per FR-040, research.md §10 (depends on T122)
-- [ ] T123 [P] Integration test: submit a seeded erasure request and confirm completion, with the visitor's data gone, within a simulated 30-day window (SC-019) in `tests/Attribution.IntegrationTests/Retention/ErasureSlaTests.cs`
-- [ ] T101 [P] Implement the data-subject erasure request endpoint, completing within the 30-day SC-019 bar in `src/Attribution.Api/Controllers/AdminPrivacyController.cs` per FR-039, SC-019 (depends on T123)
+- [X] T122 [P] Integration test: run the retention purge against a seeded historical dataset spanning the 14/25-month thresholds, confirming identifiers are gone and report totals for that period reconcile identically before/after (SC-014) in `tests/Attribution.IntegrationTests/Retention/RetentionIntegrityTests.cs`
+- [X] T100 [P] Implement the `RetentionWorker` loop (14/25-month tiered de-identification via a stable HMAC surrogate, 7-year audit retention, open-review-case exception) in `src/Attribution.Workers/RetentionWorker/` per FR-040, research.md §10 (depends on T122)
+- [X] T123 [P] Integration test: submit a seeded erasure request and confirm completion, with the visitor's data gone, within a simulated 30-day window (SC-019) in `tests/Attribution.IntegrationTests/Retention/ErasureSlaTests.cs`
+- [X] T101 [P] Implement the data-subject erasure request endpoint, completing within the 30-day SC-019 bar in `src/Attribution.Api/Controllers/AdminPrivacyController.cs` per FR-039, SC-019 (depends on T123)
 - [ ] T102 [P] Generate and publish OpenAPI documentation for every versioned endpoint per Constitution Principle III
 - [ ] T103 [P] Propagate a correlation ID through structured logs end-to-end (allocation → attribution → qualification → publication) per FR-041
 - [ ] T104 Run every quickstart.md validation scenario end-to-end against a seeded environment

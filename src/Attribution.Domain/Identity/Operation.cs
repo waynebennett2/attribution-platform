@@ -13,4 +13,5 @@ public enum Operation
     ViewIntegrationHealth,
     AcknowledgeAlerts,
     ViewAuditLog,
+    ManagePrivacy,
 }

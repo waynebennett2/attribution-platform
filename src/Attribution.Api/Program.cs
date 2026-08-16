@@ -111,6 +111,16 @@ builder.Services.AddScoped<AlertingService>();
 builder.Services.AddScoped<IAlertEmailSender, SmtpAlertEmailSender>();
 builder.Services.AddHttpClient<IAlertWebhookSender, AlertWebhookSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
+// --- Retention (T100-T101, FR-039, FR-040) ---
+var retentionPolicy = builder.Configuration.GetSection("Retention").Get<RetentionPolicy>() ?? new RetentionPolicy();
+if (string.IsNullOrWhiteSpace(retentionPolicy.HmacKey) || retentionPolicy.HmacKey.Length < 32)
+{
+    throw new InvalidOperationException("Retention:HmacKey must be configured and at least 32 characters.");
+}
+builder.Services.AddSingleton(retentionPolicy);
+builder.Services.AddScoped<IRetentionRepository, RetentionRepository>();
+builder.Services.AddScoped<RetentionService>();
+
 // --- Audit logging (T017, T018) ---
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IActorContext, HttpContextActorContext>();

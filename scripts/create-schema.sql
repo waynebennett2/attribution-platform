@@ -133,6 +133,7 @@ CREATE TABLE `calls` (
   `is_final` tinyint(1) NOT NULL DEFAULT '0',
   `ingested_at` datetime(6) NOT NULL,
   `updated_at` datetime(6) NOT NULL,
+  `de_identified_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_calls_source_record_id` (`source_record_id`),
   KEY `IX_calls_dialled_number_started_at` (`dialled_number`,`started_at`)
@@ -154,6 +155,7 @@ CREATE TABLE `conversion_publications` (
   `correction` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
   `sent_at` datetime(6) DEFAULT NULL,
   `corrected_at` datetime(6) DEFAULT NULL,
+  `de_identified_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_conversion_publications_idempotency_key` (`idempotency_key`),
   KEY `FK_conversion_publications_result` (`qualification_result_id`),
@@ -280,6 +282,7 @@ CREATE TABLE `sessions` (
   `started_at` datetime(6) NOT NULL,
   `expires_at` datetime(6) NOT NULL,
   `ended_at` datetime(6) DEFAULT NULL,
+  `de_identified_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_sessions_visitor` (`visitor_id`),
   KEY `FK_sessions_website` (`website_id`),

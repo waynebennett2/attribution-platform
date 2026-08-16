@@ -307,3 +307,101 @@ internal sealed class FakeAuditLogger : IAuditLogger
         return Task.CompletedTask;
     }
 }
+
+internal sealed class FakeVisitor
+{
+    public required Guid Id { get; init; }
+    public required DateTimeOffset FirstSeenAt { get; init; }
+    public DateTimeOffset? DeIdentifiedAt { get; set; }
+}
+
+internal sealed class FakeRetentionCall
+{
+    public required Guid Id { get; init; }
+    public required DateTimeOffset StartedAt { get; init; }
+    public string? CallerId { get; set; }
+    public DateTimeOffset? DeIdentifiedAt { get; set; }
+    public bool Purged { get; set; }
+    public Guid VisitorId { get; init; }
+}
+
+internal sealed class FakePublication
+{
+    public required Guid Id { get; init; }
+    public required DateTimeOffset CallStartedAt { get; init; }
+    public string ExternalId { get; set; } = string.Empty;
+    public DateTimeOffset? DeIdentifiedAt { get; set; }
+}
+
+// FakeRetentionRepository intentionally keeps everything in one process-local list rather
+// than the real repository's system-wide SQL sweep — RetentionServiceTests uses this
+// specifically so its assertions about which rows a sweep did/didn't touch can never be
+// confused by unrelated data the way a shared real database inevitably accumulates.
+internal sealed class FakeRetentionRepository : IRetentionRepository
+{
+    public List<FakeVisitor> Visitors { get; } = new();
+    public List<FakeRetentionCall> Calls { get; } = new();
+    public List<FakePublication> Publications { get; } = new();
+    public HashSet<Guid> OpenReviewCallIds { get; } = new();
+    public List<string> PurgedAuditEntriesCutoffLog { get; } = new();
+
+    public Task<IReadOnlyList<Guid>> GetVisitorIdsEligibleForDeIdentificationAsync(DateTimeOffset cutoff) =>
+        Task.FromResult<IReadOnlyList<Guid>>(
+            Visitors.Where(v => v.FirstSeenAt < cutoff && v.DeIdentifiedAt is null).Select(v => v.Id).ToList());
+
+    public Task DeIdentifyVisitorAsync(Guid visitorId, DateTimeOffset now)
+    {
+        var visitor = Visitors.First(v => v.Id == visitorId);
+        visitor.DeIdentifiedAt = now;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<(Guid Id, string? CallerId)>> GetCallsEligibleForDeIdentificationAsync(DateTimeOffset cutoff) =>
+        Task.FromResult<IReadOnlyList<(Guid, string?)>>(
+            Calls.Where(c => c.StartedAt < cutoff && c.DeIdentifiedAt is null).Select(c => (c.Id, c.CallerId)).ToList());
+
+    public Task<bool> HasOpenReviewCaseAsync(Guid callId) => Task.FromResult(OpenReviewCallIds.Contains(callId));
+
+    public Task DeIdentifyCallAsync(Guid callId, string? surrogateCallerId, DateTimeOffset now)
+    {
+        var call = Calls.First(c => c.Id == callId);
+        if (surrogateCallerId is not null)
+        {
+            call.CallerId = surrogateCallerId;
+        }
+
+        call.DeIdentifiedAt = now;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<(Guid Id, string ExternalId)>> GetPublicationsEligibleForDeIdentificationAsync(DateTimeOffset cutoff) =>
+        Task.FromResult<IReadOnlyList<(Guid, string)>>(
+            Publications.Where(p => p.CallStartedAt < cutoff && p.DeIdentifiedAt is null).Select(p => (p.Id, p.ExternalId)).ToList());
+
+    public Task DeIdentifyPublicationAsync(Guid publicationId, string surrogateExternalId, DateTimeOffset now)
+    {
+        var publication = Publications.First(p => p.Id == publicationId);
+        publication.ExternalId = surrogateExternalId;
+        publication.DeIdentifiedAt = now;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<Guid>> GetCallsEligibleForPurgeAsync(DateTimeOffset cutoff) =>
+        Task.FromResult<IReadOnlyList<Guid>>(Calls.Where(c => c.StartedAt < cutoff && !c.Purged).Select(c => c.Id).ToList());
+
+    public Task PurgeCallAsync(Guid callId)
+    {
+        Calls.First(c => c.Id == callId).Purged = true;
+        return Task.CompletedTask;
+    }
+
+    public Task PurgeAuditLogOlderThanAsync(DateTimeOffset cutoff)
+    {
+        PurgedAuditEntriesCutoffLog.Add(cutoff.ToString("O"));
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<(Guid Id, string? CallerId)>> GetCallsForVisitorAsync(Guid visitorId) =>
+        Task.FromResult<IReadOnlyList<(Guid, string?)>>(
+            Calls.Where(c => c.VisitorId == visitorId).Select(c => (c.Id, c.CallerId)).ToList());
+}

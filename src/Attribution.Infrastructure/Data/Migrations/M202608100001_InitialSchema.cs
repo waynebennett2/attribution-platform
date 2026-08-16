@@ -76,7 +76,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("provenance").AsString(16).NotNullable().WithDefaultValue("ordinary")
             .WithColumn("started_at").AsCustom("DATETIME(6)").NotNullable()
             .WithColumn("expires_at").AsCustom("DATETIME(6)").NotNullable()
-            .WithColumn("ended_at").AsCustom("DATETIME(6)").Nullable();
+            .WithColumn("ended_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("de_identified_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_sessions_visitor").FromTable("sessions").ForeignColumn("visitor_id")
             .ToTable("visitors").PrimaryColumn("id");
         Create.ForeignKey("FK_sessions_website").FromTable("sessions").ForeignColumn("website_id")
@@ -114,7 +115,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("disposition").AsString(32).Nullable()
             .WithColumn("is_final").AsBoolean().NotNullable().WithDefaultValue(false)
             .WithColumn("ingested_at").AsCustom("DATETIME(6)").NotNullable()
-            .WithColumn("updated_at").AsCustom("DATETIME(6)").NotNullable();
+            .WithColumn("updated_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("de_identified_at").AsCustom("DATETIME(6)").Nullable();
         Create.Index("IX_calls_dialled_number_started_at").OnTable("calls")
             .OnColumn("dialled_number").Ascending().OnColumn("started_at").Ascending();
 
@@ -198,7 +200,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("last_error").AsString(int.MaxValue).Nullable()
             .WithColumn("correction").AsString(int.MaxValue).Nullable()
             .WithColumn("sent_at").AsCustom("DATETIME(6)").Nullable()
-            .WithColumn("corrected_at").AsCustom("DATETIME(6)").Nullable();
+            .WithColumn("corrected_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("de_identified_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_conversion_publications_result").FromTable("conversion_publications").ForeignColumn("qualification_result_id")
             .ToTable("qualification_results").PrimaryColumn("id");
 
