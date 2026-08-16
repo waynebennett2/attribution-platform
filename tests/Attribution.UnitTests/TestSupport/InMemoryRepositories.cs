@@ -1,7 +1,9 @@
 using Attribution.Domain.Audit;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
+using Attribution.Domain.Qualification;
 using Attribution.Domain.Sessions;
+using Attribution.Domain.Websites;
 using DomainAllocation = Attribution.Domain.Sessions.Allocation;
 using DomainAttribution = Attribution.Domain.Calls.Attribution;
 
@@ -133,4 +135,86 @@ internal sealed class FakeReviewCaseRepository : IReviewCaseRepository
         ReviewCases.Add(reviewCase);
         return Task.CompletedTask;
     }
+}
+
+internal sealed class FakeSessionRepository : ISessionRepository
+{
+    public List<Session> Sessions { get; } = new();
+
+    public Task<Session?> GetByIdAsync(Guid id) => Task.FromResult(Sessions.FirstOrDefault(s => s.Id == id));
+
+    public Task AddAsync(Session session)
+    {
+        Sessions.Add(session);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(Session session) => Task.CompletedTask;
+}
+
+internal sealed class FakeWebsiteRepository : IWebsiteRepository
+{
+    public List<Website> Websites { get; } = new();
+
+    public Task<Website?> GetByIdAsync(Guid id) => Task.FromResult(Websites.FirstOrDefault(w => w.Id == id));
+
+    public Task<Website?> GetByOriginAsync(string origin) =>
+        Task.FromResult(Websites.FirstOrDefault(w => w.PermittedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)));
+
+    public Task AddAsync(Website website)
+    {
+        Websites.Add(website);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(Website website) => Task.CompletedTask;
+}
+
+internal sealed class FakeQualificationRuleRepository : IQualificationRuleRepository
+{
+    public List<QualificationRule> Rules { get; } = new();
+
+    public Task<QualificationRule?> GetByIdAsync(Guid id) => Task.FromResult(Rules.FirstOrDefault(r => r.Id == id));
+
+    public Task<QualificationRule?> GetInForceAsync(QualificationScopeType scopeType, string? scopeRef, DateTimeOffset instant) =>
+        Task.FromResult(Rules.FirstOrDefault(
+            r => r.ScopeType == scopeType && r.ScopeRef == scopeRef && r.IsInForceAt(instant)));
+
+    public Task<QualificationRule?> GetLatestVersionAsync(QualificationScopeType scopeType, string? scopeRef) =>
+        Task.FromResult(Rules.FirstOrDefault(
+            r => r.ScopeType == scopeType && r.ScopeRef == scopeRef && r.EffectiveEnd is null));
+
+    public Task<IReadOnlyList<QualificationRule>> GetByScopeAsync(QualificationScopeType scopeType, string? scopeRef) =>
+        Task.FromResult<IReadOnlyList<QualificationRule>>(
+            Rules.Where(r => r.ScopeType == scopeType && r.ScopeRef == scopeRef).ToList());
+
+    public Task AddAsync(QualificationRule rule)
+    {
+        Rules.Add(rule);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(QualificationRule rule) => Task.CompletedTask;
+
+    public Task DeleteAsync(Guid id)
+    {
+        Rules.RemoveAll(r => r.Id == id);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeQualificationResultRepository : IQualificationResultRepository
+{
+    public List<QualificationResult> Results { get; } = new();
+
+    public Task<QualificationResult?> GetCurrentByCallIdAsync(Guid callId) =>
+        Task.FromResult(Results.FirstOrDefault(r => r.CallId == callId && r.IsCurrent));
+
+    public Task AddAsync(QualificationResult result)
+    {
+        Results.Add(result);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(QualificationResult result) => Task.CompletedTask;
 }

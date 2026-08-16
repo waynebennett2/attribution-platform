@@ -1,7 +1,9 @@
 using System;
 using Attribution.Application.Attribution;
+using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
+using Attribution.Domain.Qualification;
 using Attribution.UnitTests.TestSupport;
 using Xunit;
 using DomainAllocation = Attribution.Domain.Sessions.Allocation;
@@ -28,7 +30,19 @@ public class ReDerivationTests
             allocations ?? new FakeAllocationRepository(),
             attributions,
             new FakeReviewCaseRepository());
-        var reDerivationService = new ReDerivationService(calls, attributions, attributionService);
+
+        // A platform default qualification rule always exists in production; seeded here
+        // so re-attributing to a session with no matching website/campaign rule still has
+        // something to fall back to, exactly as it would for real.
+        var rules = new FakeQualificationRuleRepository();
+        rules.Rules.Add(QualificationRule.Create(
+            QualificationScopeType.Default, null, 1, QualificationConditions.Default,
+            DateTimeOffset.UtcNow.AddYears(-1), null, "seed", DateTimeOffset.UtcNow.AddYears(-1)));
+        var qualificationService = new QualificationService(
+            rules, new FakeQualificationResultRepository(), new FakeSessionRepository(), new FakeWebsiteRepository());
+
+        var reDerivationService = new ReDerivationService(
+            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService);
         return (reDerivationService, calls, attributions);
     }
 

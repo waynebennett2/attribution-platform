@@ -159,19 +159,19 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Tests for User Story 3
 
-- [ ] T056 [P] [US3] Unit tests for default-rule evaluation at the 60-second boundary (45s not qualified, 75s qualified) in `tests/Attribution.UnitTests/Qualification/QualificationServiceTests.cs`
-- [ ] T057 [P] [US3] Unit tests for rule versioning, most-specific-scope resolution, and effective-period contiguity validation (reject gap/overlap, FR-024) in `tests/Attribution.UnitTests/Qualification/RuleVersioningTests.cs`
-- [ ] T058 [P] [US3] Unit tests for the time-of-day condition evaluated in the website's local timezone, not the canonical storage timezone, in `tests/Attribution.UnitTests/Qualification/TimeOfDayConditionTests.cs`
-- [ ] T059 [P] [US3] Integration test: publishing a new rule version leaves previously-judged calls' results and rule-version references unchanged (SC-011) in `tests/Attribution.IntegrationTests/Qualification/RuleChangeHistoryTests.cs`
+- [X] T056 [P] [US3] Unit tests for default-rule evaluation at the 60-second boundary (45s not qualified, 75s qualified) in `tests/Attribution.UnitTests/Qualification/QualificationServiceTests.cs`
+- [X] T057 [P] [US3] Unit tests for rule versioning, most-specific-scope resolution, and effective-period contiguity validation (reject gap/overlap, FR-024) in `tests/Attribution.UnitTests/Qualification/RuleVersioningTests.cs`
+- [X] T058 [P] [US3] Unit tests for the time-of-day condition evaluated in the website's local timezone, not the canonical storage timezone, in `tests/Attribution.UnitTests/Qualification/TimeOfDayConditionTests.cs`
+- [X] T059 [P] [US3] Integration test: publishing a new rule version leaves previously-judged calls' results and rule-version references unchanged (SC-011) in `tests/Attribution.IntegrationTests/Qualification/RuleChangeHistoryTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T060 [P] [US3] Implement Qualification Rule and Qualification Result domain entities and repositories in `src/Attribution.Domain/Qualification/`, `src/Attribution.Infrastructure/Data/` (depends on T011)
-- [ ] T061 [US3] Implement the rule condition evaluator (direction, answered, duration, website/campaign scope, website-local-timezone time-of-day) in `src/Attribution.Domain/Qualification/RuleEvaluator.cs` per FR-022, FR-023 (depends on T060)
-- [ ] T062 [US3] Implement rule-version effective-period contiguity validation (reject any configuration creating a gap or overlap) in `src/Attribution.Application/Qualification/RuleVersioningService.cs` per FR-024 (depends on T060)
-- [ ] T063 [US3] Implement `QualificationService` (most-specific-scope resolution, judge attributed calls, record rule version and scope applied) in `src/Attribution.Application/Qualification/QualificationService.cs` per FR-022–FR-024 (depends on T061, T062)
-- [ ] T064 [US3] Wire qualification into the ingestion re-derivation pipeline in `src/Attribution.Application/Attribution/ReDerivationService.cs` (depends on T053, T063)
-- [ ] T065 [US3] Implement qualification-rule management endpoints (create/list/delete-future-version-only) in `src/Attribution.Api/Controllers/AdminQualificationRulesController.cs` per contracts/admin-api.md, FR-033 (depends on T062)
+- [X] T060 [P] [US3] Implement Qualification Rule and Qualification Result domain entities and repositories in `src/Attribution.Domain/Qualification/`, `src/Attribution.Infrastructure/Data/` (depends on T011)
+- [X] T061 [US3] Implement the rule condition evaluator (direction, answered, duration, website/campaign scope, website-local-timezone time-of-day) in `src/Attribution.Domain/Qualification/RuleEvaluator.cs` per FR-022, FR-023 (depends on T060)
+- [X] T062 [US3] Implement rule-version effective-period contiguity validation (reject any configuration creating a gap or overlap) in `src/Attribution.Application/Qualification/RuleVersioningService.cs` per FR-024 (depends on T060)
+- [X] T063 [US3] Implement `QualificationService` (most-specific-scope resolution, judge attributed calls, record rule version and scope applied) in `src/Attribution.Application/Qualification/QualificationService.cs` per FR-022–FR-024 (depends on T061, T062)
+- [X] T064 [US3] Wire qualification into the ingestion re-derivation pipeline in `src/Attribution.Application/Attribution/ReDerivationService.cs` (depends on T053, T063)
+- [X] T065 [US3] Implement qualification-rule management endpoints (create/list/delete-future-version-only) in `src/Attribution.Api/Controllers/AdminQualificationRulesController.cs` per contracts/admin-api.md, FR-033 (depends on T062)
 
 **Checkpoint**: User Stories 1, 2 and 3 all work independently.
 

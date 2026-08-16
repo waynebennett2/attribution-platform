@@ -154,7 +154,11 @@ public class M202608100001_InitialSchema : Migration
         Create.Table("qualification_rules")
             .WithColumn("id").AsString(36).PrimaryKey()
             .WithColumn("scope_type").AsString(16).NotNullable()
-            .WithColumn("scope_ref").AsString(36).Nullable()
+            // 255, not 36: a website-scoped rule's scope_ref is a website id (36 chars),
+            // but a campaign-scoped rule's is the campaign's own utm_campaign value
+            // (sessions.utm_campaign, FR-024), an arbitrary marketing-supplied string that
+            // can be as long as that column allows.
+            .WithColumn("scope_ref").AsString(255).Nullable()
             .WithColumn("version").AsInt32().NotNullable()
             .WithColumn("conditions").AsString(int.MaxValue).NotNullable()
             .WithColumn("effective_start").AsCustom("DATETIME(6)").NotNullable()

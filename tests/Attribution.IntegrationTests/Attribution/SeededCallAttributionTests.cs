@@ -234,7 +234,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
             INSERT INTO sessions
                 (id, visitor_id, website_id, consent_state, provenance, started_at, expires_at)
             VALUES
-                (@Id, @VisitorId, @WebsiteId, 'granted', 'ordinary', UTC_TIMESTAMP(), @ExpiresAt)
+                (@Id, @VisitorId, @WebsiteId, 'Granted', 'Ordinary', UTC_TIMESTAMP(), @ExpiresAt)
             """,
             new { Id = id.ToString(), VisitorId = visitorId.ToString(), WebsiteId = websiteId.ToString(), ExpiresAt = expiresAt });
         return id;

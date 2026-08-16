@@ -1,5 +1,6 @@
 using Attribution.Application.Attribution;
 using Attribution.Application.Ingestion;
+using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Infrastructure.Data;
 using Attribution.IntegrationTests.TestSupport;
@@ -38,8 +39,16 @@ public class IdempotentReingestionTests : IAsyncLifetime
         var attributionService = new AttributionService(
             new TrackingNumberRepository(connectionFactory), new AllocationRepository(connectionFactory),
             attributionRepository, new ReviewCaseRepository(connectionFactory));
-        var reDerivationService = new ReDerivationService(callRepository, attributionRepository, attributionService);
-        _ingestionService = new IngestionService(callRepository, callLegRepository, checkpointRepository, attributionService, reDerivationService);
+
+        var qualificationResultRepository = new QualificationResultRepository(connectionFactory);
+        var qualificationService = new QualificationService(
+            new QualificationRuleRepository(connectionFactory), qualificationResultRepository,
+            new SessionRepository(connectionFactory), new WebsiteRepository(connectionFactory));
+
+        var reDerivationService = new ReDerivationService(
+            callRepository, attributionRepository, qualificationResultRepository, attributionService, qualificationService);
+        _ingestionService = new IngestionService(
+            callRepository, callLegRepository, checkpointRepository, attributionService, reDerivationService, qualificationService);
 
         await SeedAllocatedTrackingNumberAsync();
     }
@@ -142,7 +151,7 @@ public class IdempotentReingestionTests : IAsyncLifetime
             INSERT INTO sessions
                 (id, visitor_id, website_id, consent_state, provenance, started_at, expires_at)
             VALUES
-                (@Id, @VisitorId, @WebsiteId, 'granted', 'ordinary', UTC_TIMESTAMP(), @ExpiresAt)
+                (@Id, @VisitorId, @WebsiteId, 'Granted', 'Ordinary', UTC_TIMESTAMP(), @ExpiresAt)
             """,
             new { Id = sessionId.ToString(), VisitorId = visitorId.ToString(), WebsiteId = websiteId.ToString(), ExpiresAt = now.AddHours(1) });
 

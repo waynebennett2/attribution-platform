@@ -1,7 +1,9 @@
 using System;
 using Attribution.Application.Attribution;
 using Attribution.Application.Ingestion;
+using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
+using Attribution.Domain.Qualification;
 using Attribution.UnitTests.TestSupport;
 using Xunit;
 
@@ -24,8 +26,17 @@ public class IngestionTests
         var attributions = new FakeAttributionRepository();
         var attributionService = new AttributionService(
             new FakeTrackingNumberRepository(), new FakeAllocationRepository(), attributions, new FakeReviewCaseRepository());
-        var reDerivationService = new ReDerivationService(calls, attributions, attributionService);
-        var service = new IngestionService(calls, legs, checkpoints, attributionService, reDerivationService);
+
+        var rules = new FakeQualificationRuleRepository();
+        rules.Rules.Add(QualificationRule.Create(
+            QualificationScopeType.Default, null, 1, QualificationConditions.Default,
+            DateTimeOffset.UtcNow.AddYears(-1), null, "seed", DateTimeOffset.UtcNow.AddYears(-1)));
+        var qualificationService = new QualificationService(
+            rules, new FakeQualificationResultRepository(), new FakeSessionRepository(), new FakeWebsiteRepository());
+
+        var reDerivationService = new ReDerivationService(
+            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService);
+        var service = new IngestionService(calls, legs, checkpoints, attributionService, reDerivationService, qualificationService);
         return (service, calls, legs, checkpoints, attributions);
     }
 

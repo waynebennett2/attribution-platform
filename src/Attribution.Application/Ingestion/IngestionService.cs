@@ -1,11 +1,15 @@
 using Attribution.Application.Attribution;
+using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 
 namespace Attribution.Application.Ingestion;
 
 // FR-016, FR-017, FR-042: idempotent CDR/Call Leg upsert plus checkpoint advancement — the
 // core pipeline shared by both the live IngestionWorker loop and the operator-triggered
-// BackfillService, so neither can drift from the other's idempotency guarantees.
+// BackfillService, so neither can drift from the other's idempotency guarantees. Also the
+// single place a newly-ingested (never-seen-before) call gets qualified once attributed —
+// re-derivation's own re-qualification lives in ReDerivationService, since a restated call
+// additionally has a prior qualification result to supersede.
 public sealed class IngestionService
 {
     private readonly ICallRepository _callRepository;
@@ -13,19 +17,22 @@ public sealed class IngestionService
     private readonly IIngestionCheckpointRepository _checkpointRepository;
     private readonly AttributionService _attributionService;
     private readonly ReDerivationService _reDerivationService;
+    private readonly QualificationService _qualificationService;
 
     public IngestionService(
         ICallRepository callRepository,
         ICallLegRepository callLegRepository,
         IIngestionCheckpointRepository checkpointRepository,
         AttributionService attributionService,
-        ReDerivationService reDerivationService)
+        ReDerivationService reDerivationService,
+        QualificationService qualificationService)
     {
         _callRepository = callRepository;
         _callLegRepository = callLegRepository;
         _checkpointRepository = checkpointRepository;
         _attributionService = attributionService;
         _reDerivationService = reDerivationService;
+        _qualificationService = qualificationService;
     }
 
     // Processes one polled page and, if the caller wants the named feed's checkpoint
@@ -70,7 +77,11 @@ public sealed class IngestionService
                 await _callLegRepository.UpdateAsync(orphan);
             }
 
-            await _attributionService.AttributeAsync(call, now);
+            var attribution = await _attributionService.AttributeAsync(call, now);
+            if (attribution.State == Domain.Calls.AttributionState.Attributed)
+            {
+                await _qualificationService.QualifyAsync(call, attribution, now);
+            }
             return;
         }
 

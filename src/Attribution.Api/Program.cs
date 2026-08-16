@@ -2,10 +2,12 @@ using Attribution.Api.Middleware;
 using Dapper;
 using Attribution.Application.Administration;
 using Attribution.Application.Allocation;
+using Attribution.Application.Qualification;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Identity;
 using Attribution.Domain.Pools;
+using Attribution.Domain.Qualification;
 using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
 using Attribution.Infrastructure.Data;
@@ -72,9 +74,11 @@ builder.Services.AddScoped<ICallLegRepository, CallLegRepository>();
 builder.Services.AddScoped<IAttributionRepository, AttributionRepository>();
 builder.Services.AddScoped<IIngestionCheckpointRepository, IngestionCheckpointRepository>();
 builder.Services.AddScoped<IReviewCaseRepository, ReviewCaseRepository>();
+builder.Services.AddScoped<IQualificationRuleRepository, QualificationRuleRepository>();
 builder.Services.AddScoped<Attribution.Application.Attribution.AttributionService>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<ShadowAllocationService>();
+builder.Services.AddScoped<RuleVersioningService>();
 
 // --- Audit logging (T017, T018) ---
 builder.Services.AddHttpContextAccessor();

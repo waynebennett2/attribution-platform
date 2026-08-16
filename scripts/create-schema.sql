@@ -223,7 +223,7 @@ DROP TABLE IF EXISTS `qualification_rules`;
 CREATE TABLE `qualification_rules` (
   `id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `scope_type` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `scope_ref` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
+  `scope_ref` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `version` int NOT NULL,
   `conditions` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `effective_start` datetime(6) NOT NULL,

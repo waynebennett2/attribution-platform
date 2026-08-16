@@ -39,5 +39,17 @@ VALUES
     ('00000000-0000-0000-0000-000000000006', @pool_id, '+441632960004', 'Active', UTC_TIMESTAMP()),
     ('00000000-0000-0000-0000-000000000007', @pool_id, '+441632960005', 'Active', UTC_TIMESTAMP());
 
+-- FR-022: the platform default qualification rule. A deployment needs exactly one
+-- open-ended (effective_end IS NULL) Default-scope rule at all times, or no attributed
+-- call can ever be qualified. The conditions JSON must match QualificationConditions'
+-- System.Text.Json shape (Attribution.Domain.Qualification.QualificationConditions) —
+-- RequiredDirection is the CallDirection enum's underlying int (Inbound = 0).
+INSERT INTO qualification_rules
+    (id, scope_type, scope_ref, version, conditions, effective_start, effective_end, created_by, created_at)
+VALUES
+    ('00000000-0000-0000-0000-000000000008', 'Default', NULL, 1,
+     '{"RequiredDirection":0,"AnsweredRequired":true,"MinConnectedDurationSeconds":60,"TimeOfDay":null}',
+     '2020-01-01 00:00:00.000000', NULL, 'seed', UTC_TIMESTAMP());
+
 SELECT @website_id AS website_id, @pool_id AS pool_id;
 SELECT did, status FROM tracking_numbers WHERE pool_id = @pool_id;
