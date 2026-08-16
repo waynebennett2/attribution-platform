@@ -1,3 +1,4 @@
+using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Qualification;
@@ -41,8 +42,9 @@ public class RuleChangeHistoryTests : IAsyncLifetime
         _callRepository = new CallRepository(connectionFactory);
         _attributionRepository = new AttributionRepository(connectionFactory);
 
+        var publicationService = new PublicationService(new ConversionPublicationRepository(connectionFactory), sessionRepository);
         _versioningService = new RuleVersioningService(ruleRepository);
-        _qualificationService = new QualificationService(ruleRepository, _resultRepository, sessionRepository, websiteRepository);
+        _qualificationService = new QualificationService(ruleRepository, _resultRepository, sessionRepository, websiteRepository, publicationService);
 
         (_, _sessionId, _allocationId) = await SeedWebsiteSessionAndAllocationAsync();
     }
@@ -122,7 +124,7 @@ public class RuleChangeHistoryTests : IAsyncLifetime
             new { Id = poolId.ToString(), WebsiteId = websiteId.ToString() });
 
         var trackingNumberId = Guid.NewGuid();
-        var did = $"+4416329{Random.Shared.Next(40000, 49999)}";
+        var did = $"+44163{Random.Shared.Next(1000000, 9999999)}";
         await connection.ExecuteAsync(
             "INSERT INTO tracking_numbers (id, pool_id, did, status, status_changed_at) VALUES (@Id, @PoolId, @Did, 'Active', UTC_TIMESTAMP())",
             new { Id = trackingNumberId.ToString(), PoolId = poolId.ToString(), Did = did });

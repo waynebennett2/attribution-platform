@@ -1,6 +1,8 @@
+using Attribution.Application.Administration;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
+using Attribution.Domain.Publication;
 using Attribution.Domain.Qualification;
 using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
@@ -217,4 +219,82 @@ internal sealed class FakeQualificationResultRepository : IQualificationResultRe
     }
 
     public Task UpdateAsync(QualificationResult result) => Task.CompletedTask;
+}
+
+internal sealed class FakeConversionPublicationRepository : IConversionPublicationRepository
+{
+    public List<ConversionPublication> Publications { get; } = new();
+
+    // The real repository resolves a publication's call via a
+    // conversion_publications -> qualification_results.call_id join; this fake has no
+    // such join to work with, so tests populate this mapping directly (mirroring that
+    // column) before exercising code that calls GetActiveForCallAsync.
+    public Dictionary<Guid, Guid> CallIdByQualificationResultId { get; } = new();
+
+    // No PublicationWorker unit tests exercise this fake yet.
+    public Task<IReadOnlyList<PublicationWorkItem>> GetRetryableAsync(int maxAttempts, int limit) =>
+        Task.FromResult<IReadOnlyList<PublicationWorkItem>>(Array.Empty<PublicationWorkItem>());
+
+    public Task<ConversionPublication?> GetActiveForCallAsync(Guid callId, PublicationDestination destination) =>
+        Task.FromResult(Publications.FirstOrDefault(p =>
+            CallIdByQualificationResultId.TryGetValue(p.QualificationResultId, out var c) && c == callId
+            && p.Destination == destination && p.Status != PublicationStatus.Retracted));
+
+    public Task AddAsync(ConversionPublication publication)
+    {
+        Publications.Add(publication);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAsync(ConversionPublication publication) => Task.CompletedTask;
+}
+
+internal sealed class FakeGoogleAdsClient : IGoogleAdsClient
+{
+    public List<GoogleAdsConversion> Uploaded { get; } = new();
+    public List<string> Retracted { get; } = new();
+    public List<(string ExternalId, GoogleAdsConversion Conversion)> Adjusted { get; } = new();
+    public string NextExternalId { get; set; } = "gclid-conversion-1";
+
+    public Task<string> UploadConversionAsync(GoogleAdsConversion conversion, CancellationToken cancellationToken)
+    {
+        Uploaded.Add(conversion);
+        return Task.FromResult(NextExternalId);
+    }
+
+    public Task RetractAsync(string externalId, CancellationToken cancellationToken)
+    {
+        Retracted.Add(externalId);
+        return Task.CompletedTask;
+    }
+
+    public Task AdjustAsync(string externalId, GoogleAdsConversion conversion, CancellationToken cancellationToken)
+    {
+        Adjusted.Add((externalId, conversion));
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeGa4Client : IGa4Client
+{
+    public List<Ga4Event> SentEvents { get; } = new();
+
+    public Task SendEventAsync(Ga4Event conversionEvent, CancellationToken cancellationToken)
+    {
+        SentEvents.Add(conversionEvent);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed record RecordedAuditEntry(string Action, string TargetType, string TargetId, object? Before, object? After);
+
+internal sealed class FakeAuditLogger : IAuditLogger
+{
+    public List<RecordedAuditEntry> Entries { get; } = new();
+
+    public Task RecordAsync(string action, string targetType, string targetId, object? before, object? after)
+    {
+        Entries.Add(new RecordedAuditEntry(action, targetType, targetId, before, after));
+        return Task.CompletedTask;
+    }
 }

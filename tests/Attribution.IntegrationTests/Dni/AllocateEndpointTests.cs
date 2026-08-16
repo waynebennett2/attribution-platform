@@ -140,7 +140,7 @@ public class AllocateEndpointTests : IAsyncLifetime
     // across test runs would collide with a prior run's still-present row.
     private async Task<string> SeedTrackingNumberAsync(Guid poolId)
     {
-        var did = $"+44163{Random.Shared.Next(2900000, 2999999)}";
+        var did = $"+44163{Random.Shared.Next(1000000, 9999999)}";
         await using var connection = new MySqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         var command = connection.CreateCommand();

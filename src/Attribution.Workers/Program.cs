@@ -1,13 +1,18 @@
+using Attribution.Application.Administration;
 using Attribution.Application.Attribution;
 using Attribution.Application.Ingestion;
+using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
+using Attribution.Domain.Publication;
 using Attribution.Domain.Qualification;
 using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
 using Attribution.Infrastructure.Data;
+using Attribution.Infrastructure.GA4;
+using Attribution.Infrastructure.GoogleAds;
 using Attribution.Infrastructure.Ingestion8x8;
 using Attribution.Workers.AlertingWorker;
 using Attribution.Workers.IngestionWorker;
@@ -44,19 +49,31 @@ builder.Services.AddScoped<ICallLegRepository, CallLegRepository>();
 builder.Services.AddScoped<IAttributionRepository, AttributionRepository>();
 builder.Services.AddScoped<IIngestionCheckpointRepository, IngestionCheckpointRepository>();
 builder.Services.AddScoped<IReviewCaseRepository, ReviewCaseRepository>();
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<IActorContext, SystemActorContext>();
+builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddScoped<IWebsiteRepository, WebsiteRepository>();
 builder.Services.AddScoped<IQualificationRuleRepository, QualificationRuleRepository>();
 builder.Services.AddScoped<IQualificationResultRepository, QualificationResultRepository>();
+builder.Services.AddScoped<IConversionPublicationRepository, ConversionPublicationRepository>();
 builder.Services.AddScoped<AttributionService>();
 builder.Services.AddScoped<QualificationService>();
 builder.Services.AddScoped<ReDerivationService>();
 builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<BackfillService>();
+builder.Services.AddScoped<PublicationService>();
+builder.Services.AddScoped<CorrectionService>();
 
 // --- Analytics for 8x8 Work client (T050) ---
 builder.Services.Configure<Analytics8x8ClientOptions>(builder.Configuration.GetSection("Analytics8x8"));
 builder.Services.AddHttpClient<IAnalytics8x8Client, Analytics8x8Client>();
+
+// --- Google Ads / GA4 publication clients (T079, T080) ---
+builder.Services.Configure<GoogleAdsClientOptions>(builder.Configuration.GetSection("GoogleAds"));
+builder.Services.AddHttpClient<IGoogleAdsClient, GoogleAdsClient>();
+builder.Services.Configure<Ga4ClientOptions>(builder.Configuration.GetSection("Ga4"));
+builder.Services.AddHttpClient<IGa4Client, Ga4Client>();
 
 // FR-043: each loop is independently registered so a slow/failing one never blocks the
 // others, and the whole host can scale independently from the request/response Api

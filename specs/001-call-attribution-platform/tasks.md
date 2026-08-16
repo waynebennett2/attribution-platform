@@ -210,20 +210,20 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Tests for User Story 5
 
-- [ ] T074 [P] [US5] Unit tests for idempotency-key generation, scoped per publish episode (a genuine retract-then-requalify gets a new key, FR-027) in `tests/Attribution.UnitTests/Publication/IdempotencyKeyTests.cs`
-- [ ] T075 [P] [US5] Unit tests for GCLID-missing (Google Ads) and GA4-client-id-missing (GA4) skip-with-reason handling in `tests/Attribution.UnitTests/Publication/SkipReasonTests.cs`
-- [ ] T076 [P] [US5] Integration test: a qualified call is published exactly once to both destinations, and retries/reprocessing produce no duplicate (SC-002, FR-027) in `tests/Attribution.IntegrationTests/Publication/PublicationIdempotencyTests.cs`
-- [ ] T077 [P] [US5] Integration test: FR-044 correction propagation — Google Ads retract/adjust succeeds, GA4 is recorded as unpropagatable — both audited in `tests/Attribution.IntegrationTests/Publication/CorrectionPropagationTests.cs`
+- [X] T074 [P] [US5] Unit tests for idempotency-key generation, scoped per publish episode (a genuine retract-then-requalify gets a new key, FR-027) in `tests/Attribution.UnitTests/Publication/IdempotencyKeyTests.cs`
+- [X] T075 [P] [US5] Unit tests for GCLID-missing (Google Ads) and GA4-client-id-missing (GA4) skip-with-reason handling in `tests/Attribution.UnitTests/Publication/SkipReasonTests.cs`
+- [X] T076 [P] [US5] Integration test: a qualified call is published exactly once to both destinations, and retries/reprocessing produce no duplicate (SC-002, FR-027) in `tests/Attribution.IntegrationTests/Publication/PublicationIdempotencyTests.cs`
+- [X] T077 [P] [US5] Integration test: FR-044 correction propagation — Google Ads retract/adjust succeeds, GA4 is recorded as unpropagatable — both audited in `tests/Attribution.IntegrationTests/Publication/CorrectionPropagationTests.cs`
 
 ### Implementation for User Story 5
 
-- [ ] T078 [P] [US5] Implement the Conversion Publication domain entity and repository in `src/Attribution.Domain/Publication/ConversionPublication.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
-- [ ] T079 [P] [US5] Implement the Google Ads offline-conversions client (upload, retract, adjust) in `src/Attribution.Infrastructure/GoogleAds/` per research.md §6, FR-025
-- [ ] T080 [P] [US5] Implement the GA4 Measurement Protocol client in `src/Attribution.Infrastructure/GA4/` per research.md §7
-- [ ] T081 [US5] Implement `PublicationService` (write the outbox row in the same transaction as the qualification decision, per-episode idempotency key) in `src/Attribution.Application/Publication/PublicationService.cs` per FR-025–FR-028, research.md §3 (depends on T078)
-- [ ] T082 [US5] Implement the `PublicationWorker` loop (drain the outbox, retry with backoff, record every attempt's outcome) in `src/Attribution.Workers/PublicationWorker/` per FR-027, FR-028 (depends on T079, T080, T081)
-- [ ] T083 [US5] Implement correction propagation (FR-044: Google Ads retraction/adjustment, GA4 unpropagatable recording, idempotent repeated correction) in `src/Attribution.Application/Publication/CorrectionService.cs` (depends on T081)
-- [ ] T084 [US5] Wire qualification-change triggers (manual review resolution, FR-045 re-derivation) to `CorrectionService` in `src/Attribution.Application/Qualification/QualificationService.cs`, `ReDerivationService.cs` (depends on T063, T083)
+- [X] T078 [P] [US5] Implement the Conversion Publication domain entity and repository in `src/Attribution.Domain/Publication/ConversionPublication.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
+- [X] T079 [P] [US5] Implement the Google Ads offline-conversions client (upload, retract, adjust) in `src/Attribution.Infrastructure/GoogleAds/` per research.md §6, FR-025
+- [X] T080 [P] [US5] Implement the GA4 Measurement Protocol client in `src/Attribution.Infrastructure/GA4/` per research.md §7
+- [X] T081 [US5] Implement `PublicationService` (write the outbox row in the same transaction as the qualification decision, per-episode idempotency key) in `src/Attribution.Application/Publication/PublicationService.cs` per FR-025–FR-028, research.md §3 (depends on T078)
+- [X] T082 [US5] Implement the `PublicationWorker` loop (drain the outbox, retry with backoff, record every attempt's outcome) in `src/Attribution.Workers/PublicationWorker/` per FR-027, FR-028 (depends on T079, T080, T081)
+- [X] T083 [US5] Implement correction propagation (FR-044: Google Ads retraction/adjustment, GA4 unpropagatable recording, idempotent repeated correction) in `src/Attribution.Application/Publication/CorrectionService.cs` (depends on T081)
+- [X] T084 [US5] Wire qualification-change triggers (manual review resolution, FR-045 re-derivation) to `CorrectionService` in `src/Attribution.Application/Qualification/QualificationService.cs`, `ReDerivationService.cs` (depends on T063, T083) — the FR-045 re-derivation trigger; the manual-review-resolution trigger lands with T096 (US6), which already depends on T083 for exactly this reason
 
 **Checkpoint**: User Stories 1–5 all work independently.
 

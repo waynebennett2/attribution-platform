@@ -1,6 +1,7 @@
 using System;
 using Attribution.Application.Attribution;
 using Attribution.Application.Ingestion;
+using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Qualification;
@@ -31,11 +32,14 @@ public class IngestionTests
         rules.Rules.Add(QualificationRule.Create(
             QualificationScopeType.Default, null, 1, QualificationConditions.Default,
             DateTimeOffset.UtcNow.AddYears(-1), null, "seed", DateTimeOffset.UtcNow.AddYears(-1)));
+        var publicationService = new PublicationService(new FakeConversionPublicationRepository(), new FakeSessionRepository());
         var qualificationService = new QualificationService(
-            rules, new FakeQualificationResultRepository(), new FakeSessionRepository(), new FakeWebsiteRepository());
+            rules, new FakeQualificationResultRepository(), new FakeSessionRepository(), new FakeWebsiteRepository(), publicationService);
+        var correctionService = new CorrectionService(
+            new FakeConversionPublicationRepository(), new FakeSessionRepository(), new FakeGoogleAdsClient(), new FakeAuditLogger());
 
         var reDerivationService = new ReDerivationService(
-            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService);
+            calls, attributions, new FakeQualificationResultRepository(), attributionService, qualificationService, correctionService);
         var service = new IngestionService(calls, legs, checkpoints, attributionService, reDerivationService, qualificationService);
         return (service, calls, legs, checkpoints, attributions);
     }

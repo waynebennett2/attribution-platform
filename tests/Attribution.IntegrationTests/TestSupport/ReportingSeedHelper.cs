@@ -50,7 +50,10 @@ public sealed class ReportingSeedHelper
             new { Id = poolId.ToString(), WebsiteId = WebsiteId.ToString() });
 
         var trackingNumberId = Guid.NewGuid();
-        Did = $"+4416329{Random.Shared.Next(10000, 19999)}";
+        // A wide random range: this helper is reused across every User Story 4 test class,
+        // and the shared database accumulates every prior run's rows indefinitely (no
+        // per-test cleanup) — a narrow range's collision odds rise with every run.
+        Did = $"+44163{Random.Shared.Next(1000000, 9999999)}";
         await connection.ExecuteAsync(
             "INSERT INTO tracking_numbers (id, pool_id, did, status, status_changed_at) VALUES (@Id, @PoolId, @Did, 'Active', UTC_TIMESTAMP())",
             new { Id = trackingNumberId.ToString(), PoolId = poolId.ToString(), Did });

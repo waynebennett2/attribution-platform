@@ -83,7 +83,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
     [Fact]
     public async Task CallToANumberNeverAllocated_IsUnattributed()
     {
-        var neverAllocatedDid = $"+4416329{Random.Shared.Next(70000, 79999)}";
+        var neverAllocatedDid = $"+44163{Random.Shared.Next(1000000, 9999999)}";
         var attribution = await AttributeCallAsync("sc001-never-allocated", neverAllocatedDid, DateTimeOffset.UtcNow);
 
         Assert.Equal(AttributionState.Unattributed, attribution.State);
@@ -159,7 +159,7 @@ public class SeededCallAttributionTests : IAsyncLifetime
 
     private async Task<(string Did, Guid SessionId)> SeedAllocatedNumberAsync(DateTimeOffset windowStart, DateTimeOffset sessionExpiresAt)
     {
-        var did = $"+4416329{Random.Shared.Next(60000, 69999)}";
+        var did = $"+44163{Random.Shared.Next(1000000, 9999999)}";
         var websiteId = await SeedWebsiteAsync();
         var poolId = await SeedPoolAsync();
         await SeedTrackingNumberAsync(poolId, did);

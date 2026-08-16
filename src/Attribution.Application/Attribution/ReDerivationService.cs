@@ -1,3 +1,4 @@
+using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Qualification;
@@ -11,7 +12,10 @@ namespace Attribution.Application.Attribution;
 // superseded decision is retained as history alongside the reason for the change.
 // Re-ingesting an identical record is a no-op (Call.ApplyRestatement's own
 // change-detection), which is what makes re-derivation idempotent without IngestionService
-// needing to know the difference between "genuinely restated" and "seen before".
+// needing to know the difference between "genuinely restated" and "seen before". FR-044:
+// also where a restatement's correction to an already-published call gets propagated —
+// CorrectionService, not QualificationService.QualifyAsync's own (fresh-publish-only)
+// enqueue path, since there is something to retract/adjust rather than enqueue.
 public sealed class ReDerivationService
 {
     private readonly ICallRepository _callRepository;
@@ -19,19 +23,22 @@ public sealed class ReDerivationService
     private readonly IQualificationResultRepository _qualificationResultRepository;
     private readonly AttributionService _attributionService;
     private readonly QualificationService _qualificationService;
+    private readonly CorrectionService _correctionService;
 
     public ReDerivationService(
         ICallRepository callRepository,
         IAttributionRepository attributionRepository,
         IQualificationResultRepository qualificationResultRepository,
         AttributionService attributionService,
-        QualificationService qualificationService)
+        QualificationService qualificationService,
+        CorrectionService correctionService)
     {
         _callRepository = callRepository;
         _attributionRepository = attributionRepository;
         _qualificationResultRepository = qualificationResultRepository;
         _attributionService = attributionService;
         _qualificationService = qualificationService;
+        _correctionService = correctionService;
     }
 
     public async Task<DomainAttribution?> ReDeriveIfChangedAsync(Call call, Analytics8x8CallRecord record, DateTimeOffset now)
@@ -54,17 +61,24 @@ public sealed class ReDerivationService
 
         var attribution = await _attributionService.AttributeAsync(call, now);
 
-        var currentQualification = await _qualificationResultRepository.GetCurrentByCallIdAsync(call.Id);
-        if (currentQualification is not null)
+        var previousQualification = await _qualificationResultRepository.GetCurrentByCallIdAsync(call.Id);
+        if (previousQualification is not null)
         {
-            currentQualification.Supersede("call_record_restated");
-            await _qualificationResultRepository.UpdateAsync(currentQualification);
+            previousQualification.Supersede("call_record_restated");
+            await _qualificationResultRepository.UpdateAsync(previousQualification);
         }
 
+        QualificationResult? newQualification = null;
         if (attribution.State == AttributionState.Attributed)
         {
-            await _qualificationService.QualifyAsync(call, attribution, now);
+            // QualifyAsync's own enqueue path only fires for a genuinely fresh
+            // qualification (PublicationService no-ops when an active publication already
+            // exists) — an already-published call's correction is CorrectionService's job,
+            // called separately below with the old and new results to compare.
+            newQualification = await _qualificationService.QualifyAsync(call, attribution, now);
         }
+
+        await _correctionService.CorrectIfNeededAsync(call, attribution, previousQualification, newQualification, now);
 
         return attribution;
     }

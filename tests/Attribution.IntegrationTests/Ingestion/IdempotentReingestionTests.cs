@@ -1,5 +1,6 @@
 using Attribution.Application.Attribution;
 using Attribution.Application.Ingestion;
+using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Infrastructure.Data;
@@ -21,7 +22,7 @@ public class IdempotentReingestionTests : IAsyncLifetime
 {
     // feed is varchar(32) — keep the unique suffix short.
     private readonly string _feed = $"test-{Guid.NewGuid():N}"[..32];
-    private readonly string _did = $"+4416329{Random.Shared.Next(30000, 39999)}";
+    private readonly string _did = $"+44163{Random.Shared.Next(1000000, 9999999)}";
     private readonly string _sourceRecordId = $"sc002-call-{Guid.NewGuid()}";
     private readonly string _sourceLegId = $"sc002-leg-{Guid.NewGuid()}";
 
@@ -41,12 +42,17 @@ public class IdempotentReingestionTests : IAsyncLifetime
             attributionRepository, new ReviewCaseRepository(connectionFactory));
 
         var qualificationResultRepository = new QualificationResultRepository(connectionFactory);
+        var sessionRepository = new SessionRepository(connectionFactory);
+        var publicationRepository = new ConversionPublicationRepository(connectionFactory);
+        var publicationService = new PublicationService(publicationRepository, sessionRepository);
         var qualificationService = new QualificationService(
             new QualificationRuleRepository(connectionFactory), qualificationResultRepository,
-            new SessionRepository(connectionFactory), new WebsiteRepository(connectionFactory));
+            sessionRepository, new WebsiteRepository(connectionFactory), publicationService);
+        var auditLogger = new AuditLogger(new AuditRepository(connectionFactory), new SystemActorContext());
+        var correctionService = new CorrectionService(publicationRepository, sessionRepository, new NoOpGoogleAdsClient(), auditLogger);
 
         var reDerivationService = new ReDerivationService(
-            callRepository, attributionRepository, qualificationResultRepository, attributionService, qualificationService);
+            callRepository, attributionRepository, qualificationResultRepository, attributionService, qualificationService, correctionService);
         _ingestionService = new IngestionService(
             callRepository, callLegRepository, checkpointRepository, attributionService, reDerivationService, qualificationService);
 

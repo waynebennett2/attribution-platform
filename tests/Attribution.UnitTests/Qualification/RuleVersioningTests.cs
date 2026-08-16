@@ -1,4 +1,5 @@
 using System;
+using Attribution.Application.Publication;
 using Attribution.Application.Qualification;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Qualification;
@@ -131,7 +132,8 @@ public class MostSpecificScopeResolutionTests
         rules.Rules.Add(Rule(QualificationScopeType.Website, website.Id.ToString(), isQualified: true)); // would accept
 
         var results = new FakeQualificationResultRepository();
-        var service = new QualificationService(rules, results, sessions, websites);
+        var publicationService = new PublicationService(new FakeConversionPublicationRepository(), sessions);
+        var service = new QualificationService(rules, results, sessions, websites, publicationService);
 
         var result = await service.QualifyAsync(QualifyingCall(), AttributedTo(session.Id), DateTimeOffset.UtcNow);
 
@@ -155,7 +157,8 @@ public class MostSpecificScopeResolutionTests
         rules.Rules.Add(Rule(QualificationScopeType.Campaign, "spring-sale", isQualified: true));
 
         var results = new FakeQualificationResultRepository();
-        var service = new QualificationService(rules, results, sessions, websites);
+        var publicationService = new PublicationService(new FakeConversionPublicationRepository(), sessions);
+        var service = new QualificationService(rules, results, sessions, websites, publicationService);
 
         var result = await service.QualifyAsync(QualifyingCall(), AttributedTo(session.Id), DateTimeOffset.UtcNow);
 
@@ -176,7 +179,8 @@ public class MostSpecificScopeResolutionTests
         rules.Rules.Add(Rule(QualificationScopeType.Default, null, isQualified: true));
 
         var results = new FakeQualificationResultRepository();
-        var service = new QualificationService(rules, results, sessions, websites);
+        var publicationService = new PublicationService(new FakeConversionPublicationRepository(), sessions);
+        var service = new QualificationService(rules, results, sessions, websites, publicationService);
 
         var result = await service.QualifyAsync(QualifyingCall(), AttributedTo(session.Id), DateTimeOffset.UtcNow);
 
