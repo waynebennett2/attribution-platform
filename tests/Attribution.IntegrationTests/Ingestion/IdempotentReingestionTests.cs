@@ -52,7 +52,15 @@ public class IdempotentReingestionTests : IAsyncLifetime
     [Fact]
     public async Task ReingestingAnIdenticalBatchThreeTimes_LeavesEveryUnderlyingCountUnchanged()
     {
-        var startedAt = DateTimeOffset.UtcNow;
+        // Whole-second — the precision a real 8x8 CDR timestamp actually carries.
+        // DateTimeOffset.UtcNow's genuine sub-microsecond jitter (real on Windows, via
+        // GetSystemTimePreciseAsFileTime) doesn't survive a round trip through MySQL's
+        // microsecond-precision DATETIME(6) columns, which would make that storage-precision
+        // ceiling — not a real restatement — look like a change. No real CDR source jitters
+        // at that resolution, so this reflects realistic source data rather than papering
+        // over a production gap.
+        var now = DateTimeOffset.UtcNow;
+        var startedAt = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond));
         var page = new Analytics8x8Page(
             new[]
             {

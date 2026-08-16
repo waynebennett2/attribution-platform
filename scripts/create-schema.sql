@@ -42,11 +42,11 @@ CREATE TABLE `alerts` (
   `condition_type` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `scope_ref` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `threshold` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `raised_at` datetime NOT NULL,
-  `last_notified_at` datetime NOT NULL,
-  `acknowledged_at` datetime DEFAULT NULL,
+  `raised_at` datetime(6) NOT NULL,
+  `last_notified_at` datetime(6) NOT NULL,
+  `acknowledged_at` datetime(6) DEFAULT NULL,
   `acknowledged_by` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `cleared_at` datetime DEFAULT NULL,
+  `cleared_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `IX_alerts_condition_scope_open` (`condition_type`,`scope_ref`,`cleared_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -59,10 +59,10 @@ CREATE TABLE `allocations` (
   `tracking_number_id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `session_id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `pool_id_at_allocation` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `window_start` datetime NOT NULL,
-  `window_end` datetime NOT NULL,
+  `window_start` datetime(6) NOT NULL,
+  `window_end` datetime(6) NOT NULL,
   `is_shadow` tinyint(1) NOT NULL DEFAULT '0',
-  `created_at` datetime NOT NULL,
+  `created_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_allocations_session` (`session_id`),
   KEY `IX_allocations_number_window` (`tracking_number_id`,`window_start`),
@@ -83,7 +83,7 @@ CREATE TABLE `attributions` (
   `is_shadow_derived` tinyint(1) NOT NULL DEFAULT '0',
   `is_current` tinyint(1) NOT NULL DEFAULT '1',
   `superseded_reason` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `decided_at` datetime NOT NULL,
+  `decided_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_attributions_session` (`session_id`),
   KEY `FK_attributions_allocation` (`allocation_id`),
@@ -104,7 +104,7 @@ CREATE TABLE `audit_entries` (
   `target_id` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `before_value` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
   `after_value` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `occurred_at` datetime NOT NULL,
+  `occurred_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `IX_audit_entries_target` (`target_type`,`target_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -118,8 +118,8 @@ CREATE TABLE `call_legs` (
   `source_call_record_id` varchar(128) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `source_leg_id` varchar(128) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `sequence_or_role` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `started_at` datetime DEFAULT NULL,
-  `ended_at` datetime DEFAULT NULL,
+  `started_at` datetime(6) DEFAULT NULL,
+  `ended_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_call_legs_source` (`source_call_record_id`,`source_leg_id`),
   KEY `FK_call_legs_call` (`call_id`),
@@ -135,14 +135,14 @@ CREATE TABLE `calls` (
   `direction` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `dialled_number` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `caller_id` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `started_at` datetime NOT NULL,
-  `answered_at` datetime DEFAULT NULL,
-  `ended_at` datetime DEFAULT NULL,
+  `started_at` datetime(6) NOT NULL,
+  `answered_at` datetime(6) DEFAULT NULL,
+  `ended_at` datetime(6) DEFAULT NULL,
   `connected_duration_seconds` int DEFAULT NULL,
   `disposition` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `is_final` tinyint(1) NOT NULL DEFAULT '0',
-  `ingested_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `ingested_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_calls_source_record_id` (`source_record_id`),
   KEY `IX_calls_dialled_number_started_at` (`dialled_number`,`started_at`)
@@ -162,8 +162,8 @@ CREATE TABLE `conversion_publications` (
   `external_id` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `last_error` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
   `correction` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
-  `sent_at` datetime DEFAULT NULL,
-  `corrected_at` datetime DEFAULT NULL,
+  `sent_at` datetime(6) DEFAULT NULL,
+  `corrected_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_conversion_publications_idempotency_key` (`idempotency_key`),
   KEY `FK_conversion_publications_result` (`qualification_result_id`),
@@ -177,7 +177,7 @@ CREATE TABLE `ingestion_checkpoints` (
   `id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `feed` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `position` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_ingestion_checkpoints_feed` (`feed`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -191,8 +191,8 @@ CREATE TABLE `number_pools` (
   `scope_type` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `scope_ref` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `default_number` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -207,7 +207,7 @@ CREATE TABLE `qualification_results` (
   `is_qualified` tinyint(1) NOT NULL,
   `is_current` tinyint(1) NOT NULL DEFAULT '1',
   `superseded_reason` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `decided_at` datetime NOT NULL,
+  `decided_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_qualification_results_attribution` (`attribution_id`),
   KEY `FK_qualification_results_rule` (`qualification_rule_id`),
@@ -226,10 +226,10 @@ CREATE TABLE `qualification_rules` (
   `scope_ref` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `version` int NOT NULL,
   `conditions` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `effective_start` datetime NOT NULL,
-  `effective_end` datetime DEFAULT NULL,
+  `effective_start` datetime(6) NOT NULL,
+  `effective_end` datetime(6) DEFAULT NULL,
   `created_by` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `created_at` datetime NOT NULL,
+  `created_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_qualification_rules_scope_version` (`scope_type`,`scope_ref`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -242,10 +242,10 @@ CREATE TABLE `review_cases` (
   `call_id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `attribution_id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `status` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `opened_at` datetime NOT NULL,
-  `age_alert_raised_at` datetime DEFAULT NULL,
+  `opened_at` datetime(6) NOT NULL,
+  `age_alert_raised_at` datetime(6) DEFAULT NULL,
   `resolved_by` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
-  `resolved_at` datetime DEFAULT NULL,
+  `resolved_at` datetime(6) DEFAULT NULL,
   `resolution` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
   PRIMARY KEY (`id`),
   KEY `FK_review_cases_call` (`call_id`),
@@ -275,9 +275,9 @@ CREATE TABLE `sessions` (
   `ga4_client_id` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `consent_state` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `provenance` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'ordinary',
-  `started_at` datetime NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `ended_at` datetime DEFAULT NULL,
+  `started_at` datetime(6) NOT NULL,
+  `expires_at` datetime(6) NOT NULL,
+  `ended_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_sessions_visitor` (`visitor_id`),
   KEY `FK_sessions_website` (`website_id`),
@@ -293,8 +293,8 @@ CREATE TABLE `tracking_numbers` (
   `pool_id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `did` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `status` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `status_changed_at` datetime NOT NULL,
-  `last_released_at` datetime DEFAULT NULL,
+  `status_changed_at` datetime(6) NOT NULL,
+  `last_released_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_tracking_numbers_did` (`did`),
   KEY `IX_tracking_numbers_pool_status` (`pool_id`,`status`),
@@ -315,8 +315,8 @@ CREATE TABLE `users` (
   `role_overridden_by` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `mfa_required` tinyint(1) NOT NULL DEFAULT '0',
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime NOT NULL,
-  `last_seen_at` datetime DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `last_seen_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IX_users_subject_ref` (`subject_ref`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -327,8 +327,8 @@ DROP TABLE IF EXISTS `visitors`;
 CREATE TABLE `visitors` (
   `id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
   `website_id` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL,
-  `first_seen_at` datetime NOT NULL,
-  `de_identified_at` datetime DEFAULT NULL,
+  `first_seen_at` datetime(6) NOT NULL,
+  `de_identified_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_visitors_website` (`website_id`),
   CONSTRAINT `FK_visitors_website` FOREIGN KEY (`website_id`) REFERENCES `websites` (`id`)
@@ -350,8 +350,8 @@ CREATE TABLE `websites` (
   `shadow_mode_enabled` tinyint(1) NOT NULL DEFAULT '0',
   `business_unit` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `local_timezone` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NOT NULL DEFAULT 'UTC',
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -364,4 +364,3 @@ CREATE TABLE `websites` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-

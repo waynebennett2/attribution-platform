@@ -25,8 +25,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("shadow_mode_enabled").AsBoolean().NotNullable().WithDefaultValue(false)
             .WithColumn("business_unit").AsString(255).Nullable()
             .WithColumn("local_timezone").AsString(64).NotNullable().WithDefaultValue("UTC")
-            .WithColumn("created_at").AsDateTime2().NotNullable()
-            .WithColumn("updated_at").AsDateTime2().NotNullable();
+            .WithColumn("created_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("updated_at").AsCustom("DATETIME(6)").NotNullable();
 
         Create.Table("number_pools")
             .WithColumn("id").AsString(36).PrimaryKey()
@@ -34,16 +34,16 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("scope_type").AsString(32).NotNullable()
             .WithColumn("scope_ref").AsString(36).NotNullable()
             .WithColumn("default_number").AsString(32).Nullable()
-            .WithColumn("created_at").AsDateTime2().NotNullable()
-            .WithColumn("updated_at").AsDateTime2().NotNullable();
+            .WithColumn("created_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("updated_at").AsCustom("DATETIME(6)").NotNullable();
 
         Create.Table("tracking_numbers")
             .WithColumn("id").AsString(36).PrimaryKey()
             .WithColumn("pool_id").AsString(36).NotNullable()
             .WithColumn("did").AsString(32).NotNullable().Unique()
             .WithColumn("status").AsString(16).NotNullable()
-            .WithColumn("status_changed_at").AsDateTime2().NotNullable()
-            .WithColumn("last_released_at").AsDateTime2().Nullable();
+            .WithColumn("status_changed_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("last_released_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_tracking_numbers_pool").FromTable("tracking_numbers").ForeignColumn("pool_id")
             .ToTable("number_pools").PrimaryColumn("id");
         Create.Index("IX_tracking_numbers_pool_status").OnTable("tracking_numbers")
@@ -52,8 +52,8 @@ public class M202608100001_InitialSchema : Migration
         Create.Table("visitors")
             .WithColumn("id").AsString(36).PrimaryKey()
             .WithColumn("website_id").AsString(36).NotNullable()
-            .WithColumn("first_seen_at").AsDateTime2().NotNullable()
-            .WithColumn("de_identified_at").AsDateTime2().Nullable();
+            .WithColumn("first_seen_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("de_identified_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_visitors_website").FromTable("visitors").ForeignColumn("website_id")
             .ToTable("websites").PrimaryColumn("id");
 
@@ -74,9 +74,9 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("ga4_client_id").AsString(255).Nullable()
             .WithColumn("consent_state").AsString(16).NotNullable()
             .WithColumn("provenance").AsString(16).NotNullable().WithDefaultValue("ordinary")
-            .WithColumn("started_at").AsDateTime2().NotNullable()
-            .WithColumn("expires_at").AsDateTime2().NotNullable()
-            .WithColumn("ended_at").AsDateTime2().Nullable();
+            .WithColumn("started_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("expires_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("ended_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_sessions_visitor").FromTable("sessions").ForeignColumn("visitor_id")
             .ToTable("visitors").PrimaryColumn("id");
         Create.ForeignKey("FK_sessions_website").FromTable("sessions").ForeignColumn("website_id")
@@ -87,10 +87,10 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("tracking_number_id").AsString(36).NotNullable()
             .WithColumn("session_id").AsString(36).NotNullable()
             .WithColumn("pool_id_at_allocation").AsString(36).Nullable()
-            .WithColumn("window_start").AsDateTime2().NotNullable()
-            .WithColumn("window_end").AsDateTime2().NotNullable()
+            .WithColumn("window_start").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("window_end").AsCustom("DATETIME(6)").NotNullable()
             .WithColumn("is_shadow").AsBoolean().NotNullable().WithDefaultValue(false)
-            .WithColumn("created_at").AsDateTime2().NotNullable();
+            .WithColumn("created_at").AsCustom("DATETIME(6)").NotNullable();
         Create.ForeignKey("FK_allocations_number").FromTable("allocations").ForeignColumn("tracking_number_id")
             .ToTable("tracking_numbers").PrimaryColumn("id");
         Create.ForeignKey("FK_allocations_session").FromTable("allocations").ForeignColumn("session_id")
@@ -107,14 +107,14 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("direction").AsString(16).NotNullable()
             .WithColumn("dialled_number").AsString(32).NotNullable()
             .WithColumn("caller_id").AsString(64).Nullable()
-            .WithColumn("started_at").AsDateTime2().NotNullable()
-            .WithColumn("answered_at").AsDateTime2().Nullable()
-            .WithColumn("ended_at").AsDateTime2().Nullable()
+            .WithColumn("started_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("answered_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("ended_at").AsCustom("DATETIME(6)").Nullable()
             .WithColumn("connected_duration_seconds").AsInt32().Nullable()
             .WithColumn("disposition").AsString(32).Nullable()
             .WithColumn("is_final").AsBoolean().NotNullable().WithDefaultValue(false)
-            .WithColumn("ingested_at").AsDateTime2().NotNullable()
-            .WithColumn("updated_at").AsDateTime2().NotNullable();
+            .WithColumn("ingested_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("updated_at").AsCustom("DATETIME(6)").NotNullable();
         Create.Index("IX_calls_dialled_number_started_at").OnTable("calls")
             .OnColumn("dialled_number").Ascending().OnColumn("started_at").Ascending();
 
@@ -124,8 +124,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("source_call_record_id").AsString(128).NotNullable()
             .WithColumn("source_leg_id").AsString(128).NotNullable()
             .WithColumn("sequence_or_role").AsString(64).Nullable()
-            .WithColumn("started_at").AsDateTime2().Nullable()
-            .WithColumn("ended_at").AsDateTime2().Nullable();
+            .WithColumn("started_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("ended_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_call_legs_call").FromTable("call_legs").ForeignColumn("call_id")
             .ToTable("calls").PrimaryColumn("id");
         Create.Index("IX_call_legs_source").OnTable("call_legs")
@@ -141,7 +141,7 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("is_shadow_derived").AsBoolean().NotNullable().WithDefaultValue(false)
             .WithColumn("is_current").AsBoolean().NotNullable().WithDefaultValue(true)
             .WithColumn("superseded_reason").AsString(255).Nullable()
-            .WithColumn("decided_at").AsDateTime2().NotNullable();
+            .WithColumn("decided_at").AsCustom("DATETIME(6)").NotNullable();
         Create.ForeignKey("FK_attributions_call").FromTable("attributions").ForeignColumn("call_id")
             .ToTable("calls").PrimaryColumn("id");
         Create.ForeignKey("FK_attributions_session").FromTable("attributions").ForeignColumn("session_id")
@@ -157,10 +157,10 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("scope_ref").AsString(36).Nullable()
             .WithColumn("version").AsInt32().NotNullable()
             .WithColumn("conditions").AsString(int.MaxValue).NotNullable()
-            .WithColumn("effective_start").AsDateTime2().NotNullable()
-            .WithColumn("effective_end").AsDateTime2().Nullable()
+            .WithColumn("effective_start").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("effective_end").AsCustom("DATETIME(6)").Nullable()
             .WithColumn("created_by").AsString(36).NotNullable()
-            .WithColumn("created_at").AsDateTime2().NotNullable();
+            .WithColumn("created_at").AsCustom("DATETIME(6)").NotNullable();
         Create.Index("IX_qualification_rules_scope_version").OnTable("qualification_rules")
             .OnColumn("scope_type").Ascending().OnColumn("scope_ref").Ascending().OnColumn("version").Ascending().WithOptions().Unique();
 
@@ -172,7 +172,7 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("is_qualified").AsBoolean().NotNullable()
             .WithColumn("is_current").AsBoolean().NotNullable().WithDefaultValue(true)
             .WithColumn("superseded_reason").AsString(255).Nullable()
-            .WithColumn("decided_at").AsDateTime2().NotNullable();
+            .WithColumn("decided_at").AsCustom("DATETIME(6)").NotNullable();
         Create.ForeignKey("FK_qualification_results_call").FromTable("qualification_results").ForeignColumn("call_id")
             .ToTable("calls").PrimaryColumn("id");
         Create.ForeignKey("FK_qualification_results_attribution").FromTable("qualification_results").ForeignColumn("attribution_id")
@@ -193,8 +193,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("external_id").AsString(255).Nullable()
             .WithColumn("last_error").AsString(int.MaxValue).Nullable()
             .WithColumn("correction").AsString(int.MaxValue).Nullable()
-            .WithColumn("sent_at").AsDateTime2().Nullable()
-            .WithColumn("corrected_at").AsDateTime2().Nullable();
+            .WithColumn("sent_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("corrected_at").AsCustom("DATETIME(6)").Nullable();
         Create.ForeignKey("FK_conversion_publications_result").FromTable("conversion_publications").ForeignColumn("qualification_result_id")
             .ToTable("qualification_results").PrimaryColumn("id");
 
@@ -202,7 +202,7 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("id").AsString(36).PrimaryKey()
             .WithColumn("feed").AsString(32).NotNullable().Unique()
             .WithColumn("position").AsString(255).NotNullable()
-            .WithColumn("updated_at").AsDateTime2().NotNullable();
+            .WithColumn("updated_at").AsCustom("DATETIME(6)").NotNullable();
 
         Create.Table("users")
             .WithColumn("id").AsString(36).PrimaryKey()
@@ -215,8 +215,8 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("role_overridden_by").AsString(36).Nullable()
             .WithColumn("mfa_required").AsBoolean().NotNullable().WithDefaultValue(false)
             .WithColumn("is_active").AsBoolean().NotNullable().WithDefaultValue(true)
-            .WithColumn("created_at").AsDateTime2().NotNullable()
-            .WithColumn("last_seen_at").AsDateTime2().Nullable();
+            .WithColumn("created_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("last_seen_at").AsCustom("DATETIME(6)").Nullable();
         Create.Index("IX_users_subject_ref").OnTable("users").OnColumn("subject_ref").Ascending().WithOptions().Unique();
 
         Create.Table("alerts")
@@ -224,11 +224,11 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("condition_type").AsString(32).NotNullable()
             .WithColumn("scope_ref").AsString(255).Nullable()
             .WithColumn("threshold").AsString(64).NotNullable()
-            .WithColumn("raised_at").AsDateTime2().NotNullable()
-            .WithColumn("last_notified_at").AsDateTime2().NotNullable()
-            .WithColumn("acknowledged_at").AsDateTime2().Nullable()
+            .WithColumn("raised_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("last_notified_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("acknowledged_at").AsCustom("DATETIME(6)").Nullable()
             .WithColumn("acknowledged_by").AsString(36).Nullable()
-            .WithColumn("cleared_at").AsDateTime2().Nullable();
+            .WithColumn("cleared_at").AsCustom("DATETIME(6)").Nullable();
         // FR-047: one open alert per (condition_type, scope_ref) — enforced at the application
         // layer (the AlertingService looks up an existing open row before inserting), since
         // MySQL has no portable partial/filtered unique index for "WHERE cleared_at IS NULL".
@@ -246,7 +246,7 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("target_id").AsString(64).NotNullable()
             .WithColumn("before_value").AsString(int.MaxValue).Nullable()
             .WithColumn("after_value").AsString(int.MaxValue).NotNullable()
-            .WithColumn("occurred_at").AsDateTime2().NotNullable();
+            .WithColumn("occurred_at").AsCustom("DATETIME(6)").NotNullable();
         Create.Index("IX_audit_entries_target").OnTable("audit_entries")
             .OnColumn("target_type").Ascending().OnColumn("target_id").Ascending();
 
@@ -255,10 +255,10 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("call_id").AsString(36).NotNullable()
             .WithColumn("attribution_id").AsString(36).NotNullable()
             .WithColumn("status").AsString(16).NotNullable()
-            .WithColumn("opened_at").AsDateTime2().NotNullable()
-            .WithColumn("age_alert_raised_at").AsDateTime2().Nullable()
+            .WithColumn("opened_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("age_alert_raised_at").AsCustom("DATETIME(6)").Nullable()
             .WithColumn("resolved_by").AsString(36).Nullable()
-            .WithColumn("resolved_at").AsDateTime2().Nullable()
+            .WithColumn("resolved_at").AsCustom("DATETIME(6)").Nullable()
             .WithColumn("resolution").AsString(int.MaxValue).Nullable();
         Create.ForeignKey("FK_review_cases_call").FromTable("review_cases").ForeignColumn("call_id")
             .ToTable("calls").PrimaryColumn("id");
