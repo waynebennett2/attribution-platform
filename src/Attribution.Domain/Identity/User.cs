@@ -15,6 +15,10 @@ public class User
     public Role MappedRole { get; private set; }
     public Role? RoleOverride { get; private set; }
     public string? RoleOverriddenBy { get; private set; }
+
+    // Break-glass only (FR-046); null for Federated/IntegrationService identities.
+    public string? PasswordHash { get; private set; }
+    public string? TotpSecret { get; private set; }
     public bool MfaRequired { get; private set; }
     public bool IsActive { get; private set; } = true;
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
@@ -41,11 +45,18 @@ public class User
         };
     }
 
-    public static User CreateBreakGlass(string username, Role mappedRole)
+    public static User CreateBreakGlass(string username, Role mappedRole, string passwordHash, string totpSecret)
     {
         if (string.IsNullOrWhiteSpace(username))
         {
             throw new ArgumentException("Break-glass users must have a username.", nameof(username));
+        }
+
+        if (string.IsNullOrWhiteSpace(passwordHash) || string.IsNullOrWhiteSpace(totpSecret))
+        {
+            // FR-046: break-glass accounts are always MFA-protected — both factors must be
+            // provisioned up front, never added later as an afterthought.
+            throw new ArgumentException("Break-glass users must be provisioned with a password hash and a TOTP secret.");
         }
 
         return new User
@@ -53,7 +64,9 @@ public class User
             Username = username,
             IdentityType = IdentityType.BreakGlass,
             MappedRole = mappedRole,
-            MfaRequired = true, // FR-046: break-glass accounts are always MFA-protected.
+            PasswordHash = passwordHash,
+            TotpSecret = totpSecret,
+            MfaRequired = true,
         };
     }
 
@@ -102,6 +115,8 @@ public class User
         Role mappedRole,
         Role? roleOverride,
         string? roleOverriddenBy,
+        string? passwordHash,
+        string? totpSecret,
         bool mfaRequired,
         bool isActive,
         DateTimeOffset createdAt,
@@ -115,6 +130,8 @@ public class User
             MappedRole = mappedRole,
             RoleOverride = roleOverride,
             RoleOverriddenBy = roleOverriddenBy,
+            PasswordHash = passwordHash,
+            TotpSecret = totpSecret,
             MfaRequired = mfaRequired,
             IsActive = isActive,
             CreatedAt = createdAt,

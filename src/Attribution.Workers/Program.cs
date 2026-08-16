@@ -10,6 +10,7 @@ using Attribution.Domain.Publication;
 using Attribution.Domain.Qualification;
 using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
+using Attribution.Infrastructure.Alerting;
 using Attribution.Infrastructure.Data;
 using Attribution.Infrastructure.GA4;
 using Attribution.Infrastructure.GoogleAds;
@@ -57,6 +58,9 @@ builder.Services.AddScoped<IWebsiteRepository, WebsiteRepository>();
 builder.Services.AddScoped<IQualificationRuleRepository, QualificationRuleRepository>();
 builder.Services.AddScoped<IQualificationResultRepository, QualificationResultRepository>();
 builder.Services.AddScoped<IConversionPublicationRepository, ConversionPublicationRepository>();
+builder.Services.AddScoped<IAlertRepository, AlertRepository>();
+builder.Services.AddScoped<IAlertingMetricsRepository, AlertingRepository>();
+builder.Services.AddScoped<INotificationDeliveryStatusRepository, NotificationDeliveryStatusRepository>();
 builder.Services.AddScoped<AttributionService>();
 builder.Services.AddScoped<QualificationService>();
 builder.Services.AddScoped<ReDerivationService>();
@@ -64,6 +68,19 @@ builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<BackfillService>();
 builder.Services.AddScoped<PublicationService>();
 builder.Services.AddScoped<CorrectionService>();
+
+// --- Alerting (T091-T093, FR-047) ---
+// AlertingThresholds/AlertingNotificationOptions are bound directly rather than resolved
+// via IOptions<T> in AlertingService/AlertingWorker's constructors — AlertingService lives
+// in Attribution.Application, which (like every other Application-layer service in this
+// solution) has no dependency on Microsoft.Extensions.Options; binding once here and
+// registering the resolved instance keeps that layering intact.
+builder.Services.AddSingleton(builder.Configuration.GetSection("Alerting:Thresholds").Get<AlertingThresholds>() ?? new AlertingThresholds());
+builder.Services.Configure<AlertingNotificationOptions>(builder.Configuration.GetSection("Alerting:Notifications"));
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<AlertingService>();
+builder.Services.AddScoped<IAlertEmailSender, SmtpAlertEmailSender>();
+builder.Services.AddHttpClient<IAlertWebhookSender, AlertWebhookSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 // --- Analytics for 8x8 Work client (T050) ---
 builder.Services.Configure<Analytics8x8ClientOptions>(builder.Configuration.GetSection("Analytics8x8"));

@@ -10,8 +10,13 @@ using Attribution.Domain.Pools;
 using Attribution.Domain.Qualification;
 using Attribution.Domain.Sessions;
 using Attribution.Domain.Websites;
+using Attribution.Application.Attribution;
+using Attribution.Application.Publication;
+using Attribution.Domain.Publication;
+using Attribution.Infrastructure.Alerting;
 using Attribution.Infrastructure.Data;
 using Attribution.Infrastructure.Data.Migrations;
+using Attribution.Infrastructure.GoogleAds;
 using Attribution.Infrastructure.Identity;
 using Attribution.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -75,12 +80,36 @@ builder.Services.AddScoped<IAttributionRepository, AttributionRepository>();
 builder.Services.AddScoped<IIngestionCheckpointRepository, IngestionCheckpointRepository>();
 builder.Services.AddScoped<IReviewCaseRepository, ReviewCaseRepository>();
 builder.Services.AddScoped<IQualificationRuleRepository, QualificationRuleRepository>();
+builder.Services.AddScoped<IQualificationResultRepository, QualificationResultRepository>();
+builder.Services.AddScoped<IConversionPublicationRepository, ConversionPublicationRepository>();
+builder.Services.AddScoped<IAlertRepository, AlertRepository>();
+builder.Services.AddScoped<IAlertingMetricsRepository, AlertingRepository>();
+builder.Services.AddScoped<INotificationDeliveryStatusRepository, NotificationDeliveryStatusRepository>();
 builder.Services.AddScoped<IReportingRepository, ReportingRepository>();
 builder.Services.AddScoped<Attribution.Application.Attribution.AttributionService>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<ShadowAllocationService>();
 builder.Services.AddScoped<RuleVersioningService>();
 builder.Services.AddScoped<ReportingService>();
+builder.Services.AddScoped<PublicationService>();
+builder.Services.AddScoped<QualificationService>();
+// CorrectionService/ReviewResolutionService: manual review resolution (T096) can correct
+// an already-published call, exactly like FR-045 re-derivation does — the same
+// Google-Ads-retract-or-adjust path Attribution.Workers uses, needed here too since this
+// is the only trigger for that path that runs inside the Api host rather than the Workers
+// host's own re-derivation loop.
+builder.Services.Configure<GoogleAdsClientOptions>(builder.Configuration.GetSection("GoogleAds"));
+builder.Services.AddHttpClient<IGoogleAdsClient, GoogleAdsClient>();
+builder.Services.AddScoped<CorrectionService>();
+builder.Services.AddScoped<ReviewResolutionService>();
+
+// --- Alerting (T091-T093, FR-047) ---
+builder.Services.AddSingleton(builder.Configuration.GetSection("Alerting:Thresholds").Get<AlertingThresholds>() ?? new AlertingThresholds());
+builder.Services.Configure<AlertingNotificationOptions>(builder.Configuration.GetSection("Alerting:Notifications"));
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<AlertingService>();
+builder.Services.AddScoped<IAlertEmailSender, SmtpAlertEmailSender>();
+builder.Services.AddHttpClient<IAlertWebhookSender, AlertWebhookSender>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 // --- Audit logging (T017, T018) ---
 builder.Services.AddHttpContextAccessor();
@@ -161,6 +190,7 @@ app.UseMiddleware<RateLimitingMiddleware>();
 
 app.UseMiddleware<AuthorizationFailureAuditMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<IntegrationServiceAccessMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<AuditLoggingMiddleware>();
 

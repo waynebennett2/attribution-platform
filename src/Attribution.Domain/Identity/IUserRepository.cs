@@ -10,6 +10,8 @@ public interface IUserRepository
 
     Task<IReadOnlyList<User>> GetBreakGlassUsersAsync();
 
+    Task<IReadOnlyList<User>> GetAllAsync();
+
     Task AddAsync(User user);
 
     Task UpdateAsync(User user);

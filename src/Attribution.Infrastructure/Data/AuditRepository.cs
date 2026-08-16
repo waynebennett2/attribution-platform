@@ -45,6 +45,38 @@ public sealed class AuditRepository : RepositoryBase, IAuditRepository
         return rows.Select(r => r.ToDomain()).ToList();
     }
 
+    public async Task<IReadOnlyList<AuditEntry>> QueryAsync(string? targetType, string? targetId, DateTimeOffset? from, DateTimeOffset? to)
+    {
+        var conditions = new List<string>();
+        if (targetType is not null)
+        {
+            conditions.Add("target_type = @TargetType");
+        }
+
+        if (targetId is not null)
+        {
+            conditions.Add("target_id = @TargetId");
+        }
+
+        if (from is not null)
+        {
+            conditions.Add("occurred_at >= @From");
+        }
+
+        if (to is not null)
+        {
+            conditions.Add("occurred_at <= @To");
+        }
+
+        var whereClause = conditions.Count == 0 ? string.Empty : $"WHERE {string.Join(" AND ", conditions)}";
+
+        using var connection = OpenConnection();
+        var rows = await connection.QueryAsync<AuditEntryRow>(
+            $"SELECT * FROM audit_entries {whereClause} ORDER BY occurred_at",
+            new { TargetType = targetType, TargetId = targetId, From = from, To = to });
+        return rows.Select(r => r.ToDomain()).ToList();
+    }
+
     private sealed class AuditEntryRow
     {
         public string Id { get; set; } = string.Empty;

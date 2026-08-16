@@ -21,6 +21,24 @@ public class ReviewCase
     public static ReviewCase Open(Guid callId, Guid attributionId, DateTimeOffset openedAt) =>
         new() { CallId = callId, AttributionId = attributionId, OpenedAt = openedAt };
 
+    // FR-036: resolution — the session chosen, or "confirmed unattributed" — is stored as
+    // attribution evidence by the caller (a new superseding Attribution row); this only
+    // marks the case itself closed.
+    public void Resolve(string resolvedBy, string resolution, DateTimeOffset resolvedAt)
+    {
+        if (Status == ReviewCaseStatus.Resolved)
+        {
+            throw new InvalidOperationException($"Review case {Id} is already resolved.");
+        }
+
+        Status = ReviewCaseStatus.Resolved;
+        ResolvedBy = resolvedBy;
+        Resolution = resolution;
+        ResolvedAt = resolvedAt;
+    }
+
+    public void MarkAgeAlertRaised(DateTimeOffset raisedAt) => AgeAlertRaisedAt = raisedAt;
+
     internal static ReviewCase Rehydrate(
         Guid id, Guid callId, Guid attributionId, ReviewCaseStatus status, DateTimeOffset openedAt,
         DateTimeOffset? ageAlertRaisedAt, string? resolvedBy, DateTimeOffset? resolvedAt, string? resolution) => new()

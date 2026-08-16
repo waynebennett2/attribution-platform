@@ -132,11 +132,20 @@ internal sealed class FakeReviewCaseRepository : IReviewCaseRepository
 {
     public List<ReviewCase> ReviewCases { get; } = new();
 
+    public Task<ReviewCase?> GetByIdAsync(Guid id) =>
+        Task.FromResult(ReviewCases.FirstOrDefault(r => r.Id == id));
+
+    public Task<IReadOnlyList<ReviewCase>> GetOpenAsync() =>
+        Task.FromResult<IReadOnlyList<ReviewCase>>(
+            ReviewCases.Where(r => r.Status == ReviewCaseStatus.Open).ToList());
+
     public Task AddAsync(ReviewCase reviewCase)
     {
         ReviewCases.Add(reviewCase);
         return Task.CompletedTask;
     }
+
+    public Task UpdateAsync(ReviewCase reviewCase) => Task.CompletedTask;
 }
 
 internal sealed class FakeSessionRepository : ISessionRepository

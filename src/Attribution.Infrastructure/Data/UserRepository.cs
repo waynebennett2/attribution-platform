@@ -40,6 +40,13 @@ public sealed class UserRepository : RepositoryBase, IUserRepository
         return rows.Select(r => r.ToDomain()).ToList();
     }
 
+    public async Task<IReadOnlyList<User>> GetAllAsync()
+    {
+        using var connection = OpenConnection();
+        var rows = await connection.QueryAsync<UserRow>("SELECT * FROM users ORDER BY created_at");
+        return rows.Select(r => r.ToDomain()).ToList();
+    }
+
     public async Task AddAsync(User user)
     {
         using var connection = OpenConnection();
@@ -47,10 +54,10 @@ public sealed class UserRepository : RepositoryBase, IUserRepository
             """
             INSERT INTO users
                 (id, subject_ref, username, client_id, identity_type, mapped_role, role_override,
-                 role_overridden_by, mfa_required, is_active, created_at, last_seen_at)
+                 role_overridden_by, password_hash, totp_secret, mfa_required, is_active, created_at, last_seen_at)
             VALUES
                 (@Id, @SubjectRef, @Username, @ClientId, @IdentityType, @MappedRole, @RoleOverride,
-                 @RoleOverriddenBy, @MfaRequired, @IsActive, @CreatedAt, @LastSeenAt)
+                 @RoleOverriddenBy, @PasswordHash, @TotpSecret, @MfaRequired, @IsActive, @CreatedAt, @LastSeenAt)
             """,
             UserRow.FromDomain(user));
     }
@@ -78,6 +85,8 @@ public sealed class UserRepository : RepositoryBase, IUserRepository
         public string MappedRole { get; set; } = string.Empty;
         public string? RoleOverride { get; set; }
         public string? RoleOverriddenBy { get; set; }
+        public string? PasswordHash { get; set; }
+        public string? TotpSecret { get; set; }
         public bool MfaRequired { get; set; }
         public bool IsActive { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
@@ -88,7 +97,7 @@ public sealed class UserRepository : RepositoryBase, IUserRepository
             Enum.Parse<Domain.Identity.IdentityType>(IdentityType),
             Enum.Parse<Role>(MappedRole),
             RoleOverride is null ? null : Enum.Parse<Role>(RoleOverride),
-            RoleOverriddenBy, MfaRequired, IsActive, CreatedAt, LastSeenAt);
+            RoleOverriddenBy, PasswordHash, TotpSecret, MfaRequired, IsActive, CreatedAt, LastSeenAt);
 
         public static object FromDomain(User user) => new
         {
@@ -100,6 +109,8 @@ public sealed class UserRepository : RepositoryBase, IUserRepository
             MappedRole = user.MappedRole.ToString(),
             RoleOverride = user.RoleOverride?.ToString(),
             user.RoleOverriddenBy,
+            user.PasswordHash,
+            user.TotpSecret,
             user.MfaRequired,
             user.IsActive,
             user.CreatedAt,

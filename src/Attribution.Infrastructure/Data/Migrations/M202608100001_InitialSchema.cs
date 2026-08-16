@@ -217,6 +217,11 @@ public class M202608100001_InitialSchema : Migration
             .WithColumn("mapped_role").AsString(32).NotNullable()
             .WithColumn("role_override").AsString(32).Nullable()
             .WithColumn("role_overridden_by").AsString(36).Nullable()
+            // Break-glass only (FR-046) — null for Federated/IntegrationService identities,
+            // which authenticate via the provider or an API key respectively, never a
+            // locally-stored credential.
+            .WithColumn("password_hash").AsString(255).Nullable()
+            .WithColumn("totp_secret").AsString(64).Nullable()
             .WithColumn("mfa_required").AsBoolean().NotNullable().WithDefaultValue(false)
             .WithColumn("is_active").AsBoolean().NotNullable().WithDefaultValue(true)
             .WithColumn("created_at").AsCustom("DATETIME(6)").NotNullable()
@@ -238,6 +243,19 @@ public class M202608100001_InitialSchema : Migration
         // MySQL has no portable partial/filtered unique index for "WHERE cleared_at IS NULL".
         Create.Index("IX_alerts_condition_scope_open").OnTable("alerts")
             .OnColumn("condition_type").Ascending().OnColumn("scope_ref").Ascending().OnColumn("cleared_at").Ascending();
+
+        // FR-047's "failure to deliver a notification MUST NOT suppress the underlying
+        // condition ... on the integration health view of FR-034": one row per delivery
+        // channel (email/webhook), upserted on every AlertingWorker send attempt, so
+        // AdminHealthController can surface a stuck delivery pipeline even though the
+        // Alert rows themselves keep raising/repeating regardless of whether anyone was
+        // actually notified.
+        Create.Table("notification_delivery_status")
+            .WithColumn("channel").AsString(16).PrimaryKey()
+            .WithColumn("last_attempt_at").AsCustom("DATETIME(6)").NotNullable()
+            .WithColumn("last_success_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("last_failure_at").AsCustom("DATETIME(6)").Nullable()
+            .WithColumn("last_failure_reason").AsString(255).Nullable();
 
         // FR-035: append-only by convention here; the deployment's database user grants
         // (INSERT + SELECT only on this table, no UPDATE/DELETE) are an ops/deployment
@@ -276,6 +294,7 @@ public class M202608100001_InitialSchema : Migration
     {
         Delete.Table("review_cases");
         Delete.Table("audit_entries");
+        Delete.Table("notification_delivery_status");
         Delete.Table("alerts");
         Delete.Table("users");
         Delete.Table("ingestion_checkpoints");

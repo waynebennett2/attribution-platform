@@ -32,7 +32,9 @@ public class UserRoleTests
     [Fact]
     public void BreakGlassUser_HasNoSubjectRef_AndRequiresMfa()
     {
-        var user = User.CreateBreakGlass(username: "breakglass-primary", mappedRole: Role.SystemAdministrator);
+        var user = User.CreateBreakGlass(
+            username: "breakglass-primary", mappedRole: Role.SystemAdministrator,
+            passwordHash: "hash", totpSecret: "secret");
 
         Assert.Equal(IdentityType.BreakGlass, user.IdentityType);
         Assert.Null(user.SubjectRef);

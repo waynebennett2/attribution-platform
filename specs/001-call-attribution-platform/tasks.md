@@ -237,24 +237,24 @@ Per plan.md: `src/Attribution.{Api,Application,Domain,Infrastructure,Workers}/`,
 
 ### Tests for User Story 6
 
-- [ ] T085 [P] [US6] Integration test: every administrative action type appears in the audit log with actor/target/before/after (SC-006) in `tests/Attribution.IntegrationTests/Administration/AuditLogTests.cs`
-- [ ] T086 [P] [US6] Integration test: audit entry modification/deletion attempts are refused and the attempt is itself recorded (FR-035) in `tests/Attribution.IntegrationTests/Administration/AuditImmutabilityTests.cs`
-- [ ] T087 [P] [US6] Integration test: an unhealthy ingestion/publication/pool condition raises an alert that is delivered, repeats without duplicating, and clears (FR-034, FR-047, SC-017), including a review case aged past 48 hours in `tests/Attribution.IntegrationTests/Administration/AlertingTests.cs`
-- [ ] T088 [P] [US6] Integration test: resolving a manual review case updates attribution evidence, produces no duplicate conversion, and is audited (FR-036) in `tests/Attribution.IntegrationTests/Administration/ReviewResolutionTests.cs`
-- [ ] T089 [P] [US6] Integration test: the Integration Service role is refused interactive sign-in while system-to-system access still works (FR-038) in `tests/Attribution.IntegrationTests/Administration/IntegrationServiceAccessTests.cs`
-- [ ] T090 [P] [US6] Integration test: a revoked federated user loses access within the 5-minute refresh interval (SC-016), and a break-glass account can sign in with MFA when the identity provider is unreachable (FR-046) in `tests/Attribution.IntegrationTests/Administration/FederationRevocationTests.cs`
+- [X] T085 [P] [US6] Integration test: every administrative action type appears in the audit log with actor/target/before/after (SC-006) in `tests/Attribution.IntegrationTests/Administration/AuditLogTests.cs`
+- [X] T086 [P] [US6] Integration test: audit entry modification/deletion attempts are refused and the attempt is itself recorded (FR-035) in `tests/Attribution.IntegrationTests/Administration/AuditImmutabilityTests.cs`
+- [X] T087 [P] [US6] Integration test: an unhealthy ingestion/publication/pool condition raises an alert that is delivered, repeats without duplicating, and clears (FR-034, FR-047, SC-017), including a review case aged past 48 hours in `tests/Attribution.IntegrationTests/Administration/AlertingTests.cs`
+- [X] T088 [P] [US6] Integration test: resolving a manual review case updates attribution evidence, produces no duplicate conversion, and is audited (FR-036) in `tests/Attribution.IntegrationTests/Administration/ReviewResolutionTests.cs`
+- [X] T089 [P] [US6] Integration test: the Integration Service role is refused interactive sign-in while system-to-system access still works (FR-038) in `tests/Attribution.IntegrationTests/Administration/IntegrationServiceAccessTests.cs`
+- [X] T090 [P] [US6] Integration test: a revoked federated user loses access within the 5-minute refresh interval (SC-016), and a break-glass account can sign in with MFA when the identity provider is unreachable (FR-046) in `tests/Attribution.IntegrationTests/Administration/FederationRevocationTests.cs`
 
 ### Implementation for User Story 6
 
-- [ ] T091 [P] [US6] Implement the Alert domain entity and repository (one open alert per condition invariant, FR-047) in `src/Attribution.Domain/Audit/Alert.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
-- [ ] T092 [US6] Implement `AlertingService` (threshold evaluation: ingestion lag, publication failure rate, allocation failure rate, pool utilisation, review-case age) in `src/Attribution.Application/Administration/AlertingService.cs` per FR-047 (depends on T091)
-- [ ] T093 [US6] Implement the `AlertingWorker` loop plus email/webhook delivery and delivery-failure surfacing in `src/Attribution.Workers/AlertingWorker/` per contracts/alert-webhook.md, FR-047 (depends on T092)
-- [ ] T094 [US6] Implement user/role management and role-override endpoints in `src/Attribution.Api/Controllers/AdminUsersController.cs` per contracts/admin-api.md, FR-032, FR-046 (depends on T013)
-- [ ] T095 [US6] Implement integration-health endpoints (ingestion, publication, pool utilisation) in `src/Attribution.Api/Controllers/AdminHealthController.cs` per contracts/admin-api.md, FR-034
-- [ ] T096 [US6] Implement the manual-review-case resolution endpoint (update attribution, propagate any already-published correction, audit) in `src/Attribution.Api/Controllers/AdminReviewController.cs` per contracts/admin-api.md, FR-036 (depends on T052, T083)
-- [ ] T097 [US6] Implement the alert-acknowledgement endpoint in `src/Attribution.Api/Controllers/AdminAlertsController.cs` per contracts/admin-api.md, FR-047 (depends on T091)
-- [ ] T098 [US6] Implement the read-only audit-log query endpoint in `src/Attribution.Api/Controllers/AdminAuditController.cs` per contracts/admin-api.md, FR-035 (depends on T017)
-- [ ] T099 [US6] Enforce Integration Service system-to-system-only access (deny interactive sign-in) in `src/Attribution.Api/Middleware/` per FR-038 (depends on T016)
+- [X] T091 [P] [US6] Implement the Alert domain entity and repository (one open alert per condition invariant, FR-047) in `src/Attribution.Domain/Audit/Alert.cs`, `src/Attribution.Infrastructure/Data/` (depends on T011)
+- [X] T092 [US6] Implement `AlertingService` (threshold evaluation: ingestion lag, publication failure rate, allocation failure rate, pool utilisation, review-case age) in `src/Attribution.Application/Administration/AlertingService.cs` per FR-047 (depends on T091)
+- [X] T093 [US6] Implement the `AlertingWorker` loop plus email/webhook delivery and delivery-failure surfacing in `src/Attribution.Workers/AlertingWorker/` per contracts/alert-webhook.md, FR-047 (depends on T092)
+- [X] T094 [US6] Implement user/role management and role-override endpoints in `src/Attribution.Api/Controllers/AdminUsersController.cs` per contracts/admin-api.md, FR-032, FR-046 (depends on T013)
+- [X] T095 [US6] Implement integration-health endpoints (ingestion, publication, pool utilisation) in `src/Attribution.Api/Controllers/AdminHealthController.cs` per contracts/admin-api.md, FR-034
+- [X] T096 [US6] Implement the manual-review-case resolution endpoint (update attribution, propagate any already-published correction, audit) in `src/Attribution.Api/Controllers/AdminReviewController.cs` per contracts/admin-api.md, FR-036 (depends on T052, T083)
+- [X] T097 [US6] Implement the alert-acknowledgement endpoint in `src/Attribution.Api/Controllers/AdminAlertsController.cs` per contracts/admin-api.md, FR-047 (depends on T091)
+- [X] T098 [US6] Implement the read-only audit-log query endpoint in `src/Attribution.Api/Controllers/AdminAuditController.cs` per contracts/admin-api.md, FR-035 (depends on T017)
+- [X] T099 [US6] Enforce Integration Service system-to-system-only access (deny interactive sign-in) in `src/Attribution.Api/Middleware/` per FR-038 (depends on T016)
 
 **Checkpoint**: All six user stories are independently functional.
 
