@@ -68,12 +68,12 @@ public class AuditLogTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateBreakGlassUser_AndOverrideRole_AreBothRecorded()
+    public async Task CreateUser_AndOverrideRole_AreBothRecorded()
     {
         var createResponse = await _adminClient.PostAsJsonAsync(
-            "/v1/admin/users", new { username = $"breakglass-{Guid.NewGuid():N}", password = "correct horse battery staple", role = "Analyst" });
+            "/v1/admin/users", new { username = $"local-{Guid.NewGuid():N}", password = "correct horse battery staple", role = "Analyst" });
         createResponse.EnsureSuccessStatusCode();
-        Assert.True(await ActionWasRecordedAsync("CreateBreakGlassUser", "User"));
+        Assert.True(await ActionWasRecordedAsync("CreateUser", "User"));
 
         var created = await createResponse.Content.ReadFromJsonAsync<CreatedUserResponse>();
         var overrideResponse = await _adminClient.PostAsJsonAsync(

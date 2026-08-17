@@ -1,12 +1,13 @@
 # Contract: Administration API
 
-All endpoints require a platform-issued JWT (post-OIDC-federation or break-glass, FR-046) and enforce RBAC per FR-038. Every state-changing call writes an Audit Entry (FR-035) with actor, action, target, before/after values.
+All endpoints require a platform-issued JWT (FR-046) and enforce RBAC per FR-038. Every state-changing call writes an Audit Entry (FR-035) with actor, action, target, before/after values.
 
 ## Authentication (FR-046)
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/v1/auth/break-glass/sign-in` | Unauthenticated — `{ username, password, totp_code }` → `{ access_token, expires_at }`. The one interactive sign-in endpoint actually implemented: federated sign-in is the identity provider's own SSO flow redirecting back with an already-established session, which this repository has no live provider to exercise. Every sign-in (success or failure) is audited as an exceptional event. |
+| POST | `/v1/auth/sign-in` | Unauthenticated — `{ username, password, totp_code }` → `{ access_token, expires_at, refresh_token }`. The platform's sole interactive sign-in path — local username/password plus mandatory TOTP MFA for every role. Every sign-in attempt, success or failure, is audited. |
+| POST | `/v1/auth/refresh` | Unauthenticated — `{ refresh_token }` → `{ access_token, expires_at, refresh_token }`, rotating the refresh token on each use. Refused (401) if the account has been deactivated or the refresh token is unknown/expired, which is what bounds a deactivated account's access loss to one refresh interval (SC-016). |
 
 ## Number pools & numbers (FR-001–FR-007)
 
@@ -15,6 +16,8 @@ All endpoints require a platform-issued JWT (post-OIDC-federation or break-glass
 | POST | `/v1/admin/pools` | scope_type + scope_ref required (FR-004) |
 | GET | `/v1/admin/pools/{id}` | includes current utilisation for the FR-034 warning |
 | POST | `/v1/admin/pools/{id}/numbers/import` | multipart CSV upload; response lists per-row accept/reject with reason (FR-002) |
+| GET | `/v1/admin/numbers/import-folder/files` | lists CSV files currently in the configured server-side import folder — `[{ file_name, size_bytes, modified_at }]` (FR-051) |
+| POST | `/v1/admin/pools/{id}/numbers/import-from-folder` | `{ "file_name": "string" }` — reads that file from the configured folder and applies the identical per-row accept/reject logic as `/numbers/import`; 400 if `file_name` is not a bare name resolving inside the folder (FR-051) |
 | POST | `/v1/admin/numbers/{id}/suspend` \| `/retire` \| `/reactivate` | does not touch an in-progress Allocation (FR-005) |
 | POST | `/v1/admin/numbers/{id}/move` | `{ "target_pool_id": "string" }` — rejects if number not currently active-and-unheld in a way that would violate exactly-one-pool (FR-004) |
 
@@ -30,7 +33,9 @@ All endpoints require a platform-issued JWT (post-OIDC-federation or break-glass
 
 | Method | Path | Notes |
 |---|---|---|
-| GET/POST | `/v1/admin/users` | federated users are provisioned on first sign-in, not created here; this creates/edits break-glass accounts and role overrides |
+| GET | `/v1/admin/users` | lists every local account (System Administrator, Marketing Administrator, Analyst) and its effective role |
+| POST | `/v1/admin/users` | `{ "username", "password", "role" }` → creates a local account, generating a fresh TOTP secret returned once as an `otpauth://` provisioning URI for the administrator to hand to whoever will hold it |
+| POST | `/v1/admin/users/{id}/deactivate` | audited; rejected with 409 if this would leave zero active System Administrator accounts (FR-046) |
 | POST | `/v1/admin/users/{id}/role-override` | `{ "role": "..." }` — audited (FR-046) |
 
 ## Integration health (FR-034)

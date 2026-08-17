@@ -5,10 +5,11 @@ using Attribution.Domain.Identity;
 using Attribution.Domain.Pools;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Attribution.Api.Controllers;
 
-// contracts/admin-api.md §Number pools & numbers. FR-001, FR-002, FR-004, FR-005.
+// contracts/admin-api.md §Number pools & numbers. FR-001, FR-002, FR-004, FR-005, FR-051.
 [ApiController]
 [Route("v1/admin")]
 [Authorize]
@@ -17,15 +18,18 @@ public sealed class AdminPoolsController : ControllerBase
     private readonly INumberPoolRepository _poolRepository;
     private readonly ITrackingNumberRepository _trackingNumberRepository;
     private readonly IAuditLogger _auditLogger;
+    private readonly NumberImportOptions _importOptions;
 
     public AdminPoolsController(
         INumberPoolRepository poolRepository,
         ITrackingNumberRepository trackingNumberRepository,
-        IAuditLogger auditLogger)
+        IAuditLogger auditLogger,
+        IOptions<NumberImportOptions> importOptions)
     {
         _poolRepository = poolRepository;
         _trackingNumberRepository = trackingNumberRepository;
         _auditLogger = auditLogger;
+        _importOptions = importOptions.Value;
     }
 
     [HttpPost("pools")]
@@ -71,9 +75,9 @@ public sealed class AdminPoolsController : ControllerBase
         });
     }
 
-    // FR-002: CSV bulk import. Expects one DID per line (optionally with a header row
-    // literally reading "did"); rejects duplicates (within the pool) and malformed
-    // entries (DidValidator) with a per-row reason, per contracts/admin-api.md.
+    // FR-002: CSV bulk import via browser upload. Expects one DID per line (optionally
+    // with a header row literally reading "did"); rejects duplicates (within the pool) and
+    // malformed entries (DidValidator) with a per-row reason, per contracts/admin-api.md.
     [HttpPost("pools/{id:guid}/numbers/import")]
     [RequireOperation(Operation.ManagePools)]
     [RequestSizeLimit(10 * 1024 * 1024)]
@@ -85,12 +89,97 @@ public sealed class AdminPoolsController : ControllerBase
             return NotFound();
         }
 
-        var existing = (await _trackingNumberRepository.GetByPoolAsync(id))
+        using var stream = file.OpenReadStream();
+        var results = await ImportCsvRowsAsync(id, stream);
+
+        await _auditLogger.RecordAsync(
+            "ImportNumbers", "NumberPool", id.ToString(), before: null,
+            after: new { accepted = results.Count(r => r.Accepted), rejected = results.Count(r => !r.Accepted) });
+
+        return Ok(results);
+    }
+
+    // FR-051: lists the CSV files currently sitting in the configured server-side import
+    // folder, so the admin interface can offer them for the trigger below without an
+    // operator needing to know or type a file name.
+    [HttpGet("numbers/import-folder/files")]
+    [RequireOperation(Operation.ManagePools)]
+    public IActionResult ListImportFolderFiles()
+    {
+        if (string.IsNullOrWhiteSpace(_importOptions.FolderPath) || !Directory.Exists(_importOptions.FolderPath))
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var files = new DirectoryInfo(_importOptions.FolderPath)
+            .GetFiles("*.csv", SearchOption.TopDirectoryOnly)
+            .Select(f => new { file_name = f.Name, size_bytes = f.Length, modified_at = f.LastWriteTimeUtc })
+            .OrderBy(f => f.file_name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return Ok(files);
+    }
+
+    // FR-051: triggers import of a CSV already placed in the configured folder — an
+    // operator exports it from the 8x8 admin portal and drops it there; this is the
+    // administrator's alternative to a browser upload, reading the file straight off disk
+    // and applying the identical per-row validation as /numbers/import.
+    [HttpPost("pools/{id:guid}/numbers/import-from-folder")]
+    [RequireOperation(Operation.ManagePools)]
+    public async Task<IActionResult> ImportNumbersFromFolder(Guid id, [FromBody] ImportFromFolderRequestDto request)
+    {
+        var pool = await _poolRepository.GetByIdAsync(id);
+        if (pool is null)
+        {
+            return NotFound();
+        }
+
+        // Only a bare file name resolving directly inside the configured folder is
+        // accepted — this is what stops a "../../" (or an absolute-path) value from
+        // reading anything outside it.
+        var fileName = Path.GetFileName(request.FileName);
+        if (string.IsNullOrWhiteSpace(fileName) || fileName != request.FileName)
+        {
+            return BadRequest("file_name must be a plain file name with no path segments.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_importOptions.FolderPath))
+        {
+            return BadRequest("No import folder is configured.");
+        }
+
+        var filePath = Path.Combine(_importOptions.FolderPath, fileName);
+        if (!System.IO.File.Exists(filePath))
+        {
+            return NotFound($"'{fileName}' was not found in the configured import folder.");
+        }
+
+        List<ImportRowResultDto> results;
+        using (var stream = System.IO.File.OpenRead(filePath))
+        {
+            results = await ImportCsvRowsAsync(id, stream);
+        }
+
+        await _auditLogger.RecordAsync(
+            "ImportNumbersFromFolder", "NumberPool", id.ToString(), before: null,
+            after: new { file_name = fileName, accepted = results.Count(r => r.Accepted), rejected = results.Count(r => !r.Accepted) });
+
+        return Ok(results);
+    }
+
+    // FR-002, FR-051: shared per-row validation used by both the browser-upload and the
+    // folder-triggered import paths, so the two cannot silently drift apart. One DID per
+    // line (optionally with a header row literally reading "did"); rejects duplicates
+    // (within the pool, including duplicates newly accepted earlier in the same file) and
+    // malformed entries with a per-row reason.
+    private async Task<List<ImportRowResultDto>> ImportCsvRowsAsync(Guid poolId, Stream csvStream)
+    {
+        var existing = (await _trackingNumberRepository.GetByPoolAsync(poolId))
             .Select(n => n.Did)
             .ToHashSet(StringComparer.Ordinal);
 
         var results = new List<ImportRowResultDto>();
-        using var reader = new StreamReader(file.OpenReadStream());
+        using var reader = new StreamReader(csvStream);
         var rowNumber = 0;
         string? line;
         while ((line = await reader.ReadLineAsync()) is not null)
@@ -114,15 +203,14 @@ public sealed class AdminPoolsController : ControllerBase
                 continue;
             }
 
-            var number = TrackingNumber.Create(id, did);
+            var number = TrackingNumber.Create(poolId, did);
             await _trackingNumberRepository.AddAsync(number);
             results.Add(new ImportRowResultDto { Row = rowNumber, Did = did, Accepted = true, Reason = null });
         }
 
-        await _auditLogger.RecordAsync(
-            "ImportNumbers", "NumberPool", id.ToString(), before: null,
-            after: new { accepted = results.Count(r => r.Accepted), rejected = results.Count(r => !r.Accepted) });
-
-        return Ok(results);
+        return results;
     }
 }
+
+public sealed record ImportFromFolderRequestDto(
+    [property: System.Text.Json.Serialization.JsonPropertyName("file_name")] string FileName);

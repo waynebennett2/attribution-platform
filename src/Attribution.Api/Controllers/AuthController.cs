@@ -5,24 +5,21 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
 
-// FR-046: break-glass sign-in — the local, MFA-protected recovery path used when the
-// identity provider is unreachable or misconfigured. There is no equivalent endpoint for
-// ordinary federated sign-in: that path is the identity provider's own SSO flow redirecting
-// back with an already-established session, which this repository has no live provider to
-// exercise, so this controller covers exactly the one interactive sign-in path the platform
-// itself is responsible for. Unauthenticated by design — a caller with no token yet is
-// exactly who needs to reach this — the credentials themselves are the authentication.
+// FR-046: local username/password + mandatory TOTP MFA — the platform's sole interactive
+// sign-in path. Both endpoints are unauthenticated by design: a caller with no valid token
+// yet is exactly who needs to reach them, and the credentials (or refresh token) themselves
+// are the authentication.
 [ApiController]
 [Route("v1/auth")]
 public sealed class AuthController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
-    private readonly BreakGlassAuthenticator _authenticator;
+    private readonly LocalAuthenticator _authenticator;
     private readonly ITokenIssuer _tokenIssuer;
     private readonly IAuditLogger _auditLogger;
 
     public AuthController(
-        IUserRepository userRepository, BreakGlassAuthenticator authenticator, ITokenIssuer tokenIssuer, IAuditLogger auditLogger)
+        IUserRepository userRepository, LocalAuthenticator authenticator, ITokenIssuer tokenIssuer, IAuditLogger auditLogger)
     {
         _userRepository = userRepository;
         _authenticator = authenticator;
@@ -30,41 +27,75 @@ public sealed class AuthController : ControllerBase
         _auditLogger = auditLogger;
     }
 
-    [HttpPost("break-glass/sign-in")]
-    public async Task<IActionResult> SignIn([FromBody] BreakGlassSignInRequest request)
+    [HttpPost("sign-in")]
+    public async Task<IActionResult> SignIn([FromBody] SignInRequest request)
     {
         var user = await _userRepository.GetByUsernameAsync(request.Username);
         // Same 401 whether the username doesn't exist, the account is deactivated, the
         // password is wrong, or the TOTP code is wrong — none of that is the caller's
         // business to distinguish from outside.
-        if (user is null || user.IdentityType != IdentityType.BreakGlass || !user.IsActive
-            || user.PasswordHash is null || user.TotpSecret is null
-            || !_authenticator.Verify(user.PasswordHash, request.Password, user.TotpSecret, request.TotpCode))
+        var succeeded = user is not null && user.IdentityType == IdentityType.Local && user.IsActive
+            && user.PasswordHash is not null && user.TotpSecret is not null
+            && _authenticator.Verify(user.PasswordHash, request.Password, user.TotpSecret, request.TotpCode);
+
+        // FR-046: every sign-in attempt, success or failure, is audited.
+        await _auditLogger.RecordAsync(
+            "SignIn", "User", user?.Id.ToString() ?? request.Username, before: null,
+            after: new { username = request.Username, succeeded });
+
+        if (!succeeded)
         {
             return Unauthorized();
         }
 
         var now = DateTimeOffset.UtcNow;
-        user.RecordActivity(now);
+        user!.RecordActivity(now);
+        var (accessToken, refreshToken, expiresAt) = IssueTokenPair(user, now);
         await _userRepository.UpdateAsync(user);
 
-        // FR-046: "every break-glass sign-in MUST be audited and surfaced to
-        // administrators as an exceptional event" — a plain successful action, not a
-        // failure, is still audited here precisely because break-glass use itself is the
-        // exceptional thing.
-        await _auditLogger.RecordAsync(
-            "BreakGlassSignIn", "User", user.Id.ToString(), before: null, after: new { user.Username, role = user.EffectiveRole.ToString() });
+        return Ok(new SignInResponse(accessToken, expiresAt, refreshToken));
+    }
 
-        var token = _tokenIssuer.IssueToken(user, now);
-        return Ok(new BreakGlassSignInResponse(token, now.Add(JwtPolicy.TokenLifetime)));
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+    {
+        var hashedToken = LocalAuthenticator.HashRefreshToken(request.RefreshToken);
+        var user = await _userRepository.GetByRefreshTokenHashAsync(hashedToken);
+
+        var now = DateTimeOffset.UtcNow;
+        // FR-046: this is the check that bounds a deactivated account's access loss to one
+        // refresh interval — an expired or already-rotated-away token is refused just like
+        // a deactivated account's is.
+        if (user is null || !user.IsActive || user.RefreshTokenExpiresAt is null || now >= user.RefreshTokenExpiresAt)
+        {
+            return Unauthorized();
+        }
+
+        user.RecordActivity(now);
+        var (accessToken, refreshToken, expiresAt) = IssueTokenPair(user, now);
+        await _userRepository.UpdateAsync(user);
+
+        return Ok(new SignInResponse(accessToken, expiresAt, refreshToken));
+    }
+
+    private (string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt) IssueTokenPair(User user, DateTimeOffset now)
+    {
+        var accessToken = _tokenIssuer.IssueToken(user, now);
+        var refreshToken = LocalAuthenticator.GenerateRefreshToken();
+        user.IssueRefreshToken(LocalAuthenticator.HashRefreshToken(refreshToken), now.Add(JwtPolicy.RefreshTokenLifetime));
+        return (accessToken, refreshToken, now.Add(JwtPolicy.TokenLifetime));
     }
 }
 
-public sealed record BreakGlassSignInRequest(
+public sealed record SignInRequest(
     string Username,
     string Password,
     [property: System.Text.Json.Serialization.JsonPropertyName("totp_code")] string TotpCode);
 
-public sealed record BreakGlassSignInResponse(
+public sealed record RefreshRequest(
+    [property: System.Text.Json.Serialization.JsonPropertyName("refresh_token")] string RefreshToken);
+
+public sealed record SignInResponse(
     [property: System.Text.Json.Serialization.JsonPropertyName("access_token")] string AccessToken,
-    [property: System.Text.Json.Serialization.JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt);
+    [property: System.Text.Json.Serialization.JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
+    [property: System.Text.Json.Serialization.JsonPropertyName("refresh_token")] string RefreshToken);

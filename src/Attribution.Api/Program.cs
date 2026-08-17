@@ -1,3 +1,4 @@
+using Attribution.Api.Controllers;
 using Attribution.Api.Middleware;
 using Dapper;
 using Attribution.Application.Administration;
@@ -131,6 +132,9 @@ builder.Services.AddHttpClient<IGoogleAdsClient, GoogleAdsClient>();
 builder.Services.AddScoped<CorrectionService>();
 builder.Services.AddScoped<ReviewResolutionService>();
 
+// --- Tracking number import (T144, T145, FR-051) ---
+builder.Services.Configure<NumberImportOptions>(builder.Configuration.GetSection("NumberImport"));
+
 // --- Alerting (T091-T093, FR-047) ---
 builder.Services.AddSingleton(builder.Configuration.GetSection("Alerting:Thresholds").Get<AlertingThresholds>() ?? new AlertingThresholds());
 builder.Services.Configure<AlertingNotificationOptions>(builder.Configuration.GetSection("Alerting:Notifications"));
@@ -154,7 +158,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IActorContext, HttpContextActorContext>();
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 
-// --- Identity: OIDC federation + JWT issuance + break-glass (T014, T015) ---
+// --- Identity: local username/password + TOTP MFA + JWT access/refresh tokens (T014, T015, T140, T141) ---
 var jwtSigningSecret = builder.Configuration["Jwt:SigningSecret"]
     ?? throw new InvalidOperationException("Jwt:SigningSecret is not configured.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "attribution-platform";
@@ -162,15 +166,7 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "attribution-platform
 var tokenIssuer = new JwtTokenIssuer(jwtSigningSecret, jwtIssuer, jwtAudience);
 builder.Services.AddSingleton<ITokenIssuer>(tokenIssuer);
 builder.Services.AddSingleton(tokenIssuer); // also exposed concretely for BuildValidationParameters()
-builder.Services.AddSingleton<BreakGlassAuthenticator>();
-builder.Services.AddSingleton(_ =>
-{
-    // FR-046: provider-group -> platform-role mapping; configured per deployment.
-    var mapping = builder.Configuration.GetSection("Identity:GroupRoleMapping")
-        .GetChildren()
-        .ToDictionary(c => c.Key, c => Enum.Parse<Role>(c.Value!));
-    return new GroupRoleMapper(mapping);
-});
+builder.Services.AddSingleton<LocalAuthenticator>();
 
 // --- Authentication: validates the platform-issued JWT (T016) ---
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

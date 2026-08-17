@@ -16,7 +16,7 @@ public static class TestAuth
     public static string IssueToken(Role role)
     {
         var issuer = new JwtTokenIssuer(SigningSecret, Issuer, Audience);
-        var user = User.CreateFederated(Guid.NewGuid().ToString(), role);
+        var user = User.CreateLocal($"test-{Guid.NewGuid():N}", role, passwordHash: "x", totpSecret: "x");
         return issuer.IssueToken(user, DateTimeOffset.UtcNow);
     }
 
@@ -30,13 +30,12 @@ public static class TestAuth
     }
 
     // FR-046: a token issued far enough in the past that JwtPolicy.TokenLifetime (5
-    // minutes) has already elapsed — simulates "the client didn't silently re-authenticate
-    // before expiry", the mechanism that actually enforces revocation within one refresh
-    // interval when there is no live federation session behind it any more.
+    // minutes) has already elapsed — simulates "the client didn't refresh before expiry",
+    // the mechanism that actually enforces revocation within one refresh interval.
     public static string IssueExpiredToken(Role role)
     {
         var issuer = new JwtTokenIssuer(SigningSecret, Issuer, Audience);
-        var user = User.CreateFederated(Guid.NewGuid().ToString(), role);
+        var user = User.CreateLocal($"test-{Guid.NewGuid():N}", role, passwordHash: "x", totpSecret: "x");
         return issuer.IssueToken(user, DateTimeOffset.UtcNow.Subtract(JwtPolicy.TokenLifetime).AddSeconds(-30));
     }
 }

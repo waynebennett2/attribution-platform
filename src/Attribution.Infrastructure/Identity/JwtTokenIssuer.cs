@@ -6,9 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Attribution.Infrastructure.Identity;
 
-// FR-046: issues the platform's own short-lived JWT after federation (or break-glass
-// sign-in) succeeds, carrying the mapped/overridden role. 5-minute lifetime and refresh
-// margin come from Domain.Identity.JwtPolicy — defined once, used everywhere.
+// FR-046: issues the platform's own short-lived JWT once local sign-in succeeds, carrying
+// the mapped/overridden role. 5-minute lifetime and refresh margin come from
+// Domain.Identity.JwtPolicy — defined once, used everywhere.
 public sealed class JwtTokenIssuer : ITokenIssuer
 {
     public const string RoleClaimType = "role";

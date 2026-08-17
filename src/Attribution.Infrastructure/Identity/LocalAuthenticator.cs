@@ -1,12 +1,14 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Identity;
 using OtpNet;
 
 namespace Attribution.Infrastructure.Identity;
 
-// FR-046: break-glass accounts (local credentials + TOTP MFA), used only when the
-// identity provider is unreachable or misconfigured. Every sign-in via this path is
-// audited by the caller as an exceptional event.
-public sealed class BreakGlassAuthenticator
+// FR-046: the platform's sole interactive authentication mechanism — local username +
+// password plus mandatory TOTP MFA — together with the refresh-token hashing that backs
+// POST /v1/auth/refresh.
+public sealed class LocalAuthenticator
 {
     private readonly PasswordHasher<object> _passwordHasher = new();
 
@@ -36,4 +38,11 @@ public sealed class BreakGlassAuthenticator
     {
         return VerifyPassword(storedPasswordHash, providedPassword) && VerifyTotpCode(totpSecretBase32, providedTotpCode);
     }
+
+    // FR-046: an opaque, unguessable refresh token. Only its hash (below) is ever stored;
+    // the raw value is returned to the client exactly once, at issuance.
+    public static string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    public static string HashRefreshToken(string refreshToken) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
 }

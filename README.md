@@ -41,7 +41,7 @@ docker compose up -d mysql
 dotnet run --project src/Attribution.Api          # migrations auto-apply in Development, then the API starts
 ```
 
-In another terminal, seed a test website/pool/number (the admin API needs a JWT, which needs a real OIDC provider not wired up yet, so this is the practical path for now):
+In another terminal, seed a test website/pool/number (the admin API needs a JWT — sign in with `POST /v1/auth/sign-in` once a local account exists, or seed the SQL directly for a one-shot manual test):
 
 ```bash
 mysql -h 127.0.0.1 -P 3306 -u attribution -pattribution_dev attribution < scripts/seed-dev-data.sql
@@ -74,4 +74,4 @@ scripts/seed-dev-data.sql       Manual-testing seed data
 ## Known gaps
 
 - `Attribution.IntegrationTests` (Testcontainers MySQL) and the FluentMigrator schema itself haven't been verified against a live database anywhere yet — Docker's daemon wasn't reachable in the sandbox this was built in.
-- Admin endpoints require a JWT; OIDC federation isn't wired to a real identity provider yet, so admin-side manual testing isn't possible without the SQL seed workaround above.
+- Admin endpoints require a JWT, issued by `POST /v1/auth/sign-in` (local username/password + TOTP MFA, FR-046) — there's no self-registration, so the first account has to be seeded directly or created by an existing System Administrator.

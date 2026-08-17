@@ -4,23 +4,24 @@ using Xunit;
 
 namespace Attribution.UnitTests.Identity;
 
-// FR-032, FR-046: user/role assignment and administrator role-override recording.
+// FR-032, FR-046: local username/password + TOTP account provisioning, role assignment
+// and role-change recording.
 public class UserRoleTests
 {
     [Fact]
-    public void FederatedUser_EffectiveRole_IsMappedRole_WhenNoOverride()
+    public void LocalUser_EffectiveRole_IsMappedRole_WhenNoOverride()
     {
-        var user = User.CreateFederated(subjectRef: "idp-subject-1", mappedRole: Role.Analyst);
+        var user = User.CreateLocal("analyst-1", Role.Analyst, passwordHash: "hash", totpSecret: "secret");
 
         Assert.Equal(Role.Analyst, user.EffectiveRole);
-        Assert.Equal(IdentityType.Federated, user.IdentityType);
+        Assert.Equal(IdentityType.Local, user.IdentityType);
         Assert.Null(user.RoleOverride);
     }
 
     [Fact]
     public void EffectiveRole_IsOverride_WhenAdministratorHasSetOne()
     {
-        var user = User.CreateFederated(subjectRef: "idp-subject-2", mappedRole: Role.Analyst);
+        var user = User.CreateLocal("analyst-2", Role.Analyst, passwordHash: "hash", totpSecret: "secret");
 
         user.ApplyRoleOverride(Role.MarketingAdministrator, overriddenBy: "sysadmin-1");
 
@@ -30,15 +31,21 @@ public class UserRoleTests
     }
 
     [Fact]
-    public void BreakGlassUser_HasNoSubjectRef_AndRequiresMfa()
+    public void LocalUser_RequiresMfa()
     {
-        var user = User.CreateBreakGlass(
-            username: "breakglass-primary", mappedRole: Role.SystemAdministrator,
+        var user = User.CreateLocal(
+            username: "local-primary", mappedRole: Role.SystemAdministrator,
             passwordHash: "hash", totpSecret: "secret");
 
-        Assert.Equal(IdentityType.BreakGlass, user.IdentityType);
-        Assert.Null(user.SubjectRef);
+        Assert.Equal(IdentityType.Local, user.IdentityType);
         Assert.True(user.MfaRequired);
+    }
+
+    [Fact]
+    public void CreateLocal_Throws_WhenPasswordHashOrTotpSecretMissing()
+    {
+        Assert.Throws<ArgumentException>(() => User.CreateLocal("no-mfa", Role.Analyst, passwordHash: "", totpSecret: "secret"));
+        Assert.Throws<ArgumentException>(() => User.CreateLocal("no-mfa", Role.Analyst, passwordHash: "hash", totpSecret: ""));
     }
 
     [Fact]
@@ -52,9 +59,9 @@ public class UserRoleTests
     }
 
     [Fact]
-    public void FederatedUser_CanSignInInteractively()
+    public void LocalUser_CanSignInInteractively()
     {
-        var user = User.CreateFederated(subjectRef: "idp-subject-3", mappedRole: Role.Analyst);
+        var user = User.CreateLocal("analyst-3", Role.Analyst, passwordHash: "hash", totpSecret: "secret");
 
         Assert.True(user.CanSignInInteractively());
     }
@@ -62,8 +69,21 @@ public class UserRoleTests
     [Fact]
     public void ApplyRoleOverride_Throws_WhenOverriddenByIsEmpty()
     {
-        var user = User.CreateFederated(subjectRef: "idp-subject-4", mappedRole: Role.Analyst);
+        var user = User.CreateLocal("analyst-4", Role.Analyst, passwordHash: "hash", totpSecret: "secret");
 
         Assert.Throws<ArgumentException>(() => user.ApplyRoleOverride(Role.SystemAdministrator, overriddenBy: ""));
+    }
+
+    [Fact]
+    public void Deactivate_ClearsRefreshToken()
+    {
+        var user = User.CreateLocal("analyst-5", Role.Analyst, passwordHash: "hash", totpSecret: "secret");
+        user.IssueRefreshToken("hashed-token", DateTimeOffset.UtcNow.AddHours(12));
+
+        user.Deactivate();
+
+        Assert.False(user.IsActive);
+        Assert.Null(user.RefreshTokenHash);
+        Assert.Null(user.RefreshTokenExpiresAt);
     }
 }

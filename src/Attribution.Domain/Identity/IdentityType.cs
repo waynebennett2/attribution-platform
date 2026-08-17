@@ -1,10 +1,10 @@
 namespace Attribution.Domain.Identity;
 
-// FR-046: how a User authenticates. Federated is the normal path (customer's identity
-// provider); BreakGlass and IntegrationService are the two documented exceptions.
+// FR-046: how a User authenticates. Local is the platform's sole interactive path
+// (username/password + mandatory TOTP MFA); IntegrationService is the one exception,
+// authenticated system-to-system via API key rather than interactively.
 public enum IdentityType
 {
-    Federated,
-    BreakGlass,
+    Local,
     IntegrationService,
 }

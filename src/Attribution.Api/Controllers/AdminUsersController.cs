@@ -8,22 +8,20 @@ using DomainUser = Attribution.Domain.Identity.User;
 
 namespace Attribution.Api.Controllers;
 
-// contracts/admin-api.md §Users & roles. FR-032, FR-046. "federated users are provisioned
-// on first sign-in, not created here; this creates/edits break-glass accounts and role
-// overrides" — there is no federation sign-in path in this codebase (see AuthController),
-// so in practice every row this lists today was either seeded or created here.
+// contracts/admin-api.md §Users & roles. FR-032, FR-046: local username/password + TOTP
+// accounts are the platform's only interactive users, created and deactivated here.
 [ApiController]
 [Route("v1/admin/users")]
 [Authorize]
 public sealed class AdminUsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
-    private readonly BreakGlassAuthenticator _authenticator;
+    private readonly LocalAuthenticator _authenticator;
     private readonly IActorContext _actorContext;
     private readonly IAuditLogger _auditLogger;
 
     public AdminUsersController(
-        IUserRepository userRepository, BreakGlassAuthenticator authenticator, IActorContext actorContext, IAuditLogger auditLogger)
+        IUserRepository userRepository, LocalAuthenticator authenticator, IActorContext actorContext, IAuditLogger auditLogger)
     {
         _userRepository = userRepository;
         _authenticator = authenticator;
@@ -39,13 +37,13 @@ public sealed class AdminUsersController : ControllerBase
         return Ok(users.Select(ToDto));
     }
 
-    // FR-046: provisions a break-glass account — a local password plus a fresh TOTP
-    // secret, returned once as an otpauth:// URI for the administrator to hand to whoever
-    // will hold the account (an authenticator app scans it; the platform never displays
-    // the secret again after this response).
+    // FR-046: provisions a local account — a password plus a fresh TOTP secret, returned
+    // once as an otpauth:// URI for the administrator to hand to whoever will hold the
+    // account (an authenticator app scans it; the platform never displays the secret again
+    // after this response).
     [HttpPost]
     [RequireOperation(Operation.ManageUsers)]
-    public async Task<IActionResult> CreateBreakGlass([FromBody] CreateBreakGlassUserRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
         if (!Enum.TryParse<Role>(request.Role, ignoreCase: true, out var role))
         {
@@ -58,16 +56,48 @@ public sealed class AdminUsersController : ControllerBase
         }
 
         var passwordHash = _authenticator.HashPassword(request.Password);
-        var totpSecret = BreakGlassAuthenticator.GenerateTotpSecret();
-        var user = DomainUser.CreateBreakGlass(request.Username, role, passwordHash, totpSecret);
+        var totpSecret = LocalAuthenticator.GenerateTotpSecret();
+        var user = DomainUser.CreateLocal(request.Username, role, passwordHash, totpSecret);
         await _userRepository.AddAsync(user);
 
         await _auditLogger.RecordAsync(
-            "CreateBreakGlassUser", "User", user.Id.ToString(), before: null, after: new { user.Username, role = role.ToString() });
+            "CreateUser", "User", user.Id.ToString(), before: null, after: new { user.Username, role = role.ToString() });
 
         var otpAuthUri = $"otpauth://totp/AttributionPlatform:{Uri.EscapeDataString(request.Username)}"
             + $"?secret={totpSecret}&issuer=AttributionPlatform";
         return CreatedAtAction(nameof(List), null, new { id = user.Id, totp_provisioning_uri = otpAuthUri });
+    }
+
+    // FR-046: refused with 409 if this would leave zero active System Administrator
+    // accounts, the guard against the platform locking every administrator out at once.
+    [HttpPost("{id:guid}/deactivate")]
+    [RequireOperation(Operation.ManageUsers)]
+    public async Task<IActionResult> Deactivate(Guid id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        if (!user.IsActive)
+        {
+            return Ok(ToDto(user));
+        }
+
+        if (SystemAdministratorGuard.WouldRemoveLastActiveSystemAdministrator(
+            user.EffectiveRole, await _userRepository.CountActiveSystemAdministratorsAsync()))
+        {
+            return Conflict("Cannot deactivate the last active System Administrator account.");
+        }
+
+        user.Deactivate();
+        await _userRepository.UpdateAsync(user);
+
+        await _auditLogger.RecordAsync(
+            "DeactivateUser", "User", user.Id.ToString(), before: new { is_active = true }, after: new { is_active = false });
+
+        return Ok(ToDto(user));
     }
 
     [HttpPost("{id:guid}/role-override")]
@@ -86,6 +116,12 @@ public sealed class AdminUsersController : ControllerBase
         }
 
         var previousRole = user.EffectiveRole;
+        if (newRole != Role.SystemAdministrator && SystemAdministratorGuard.WouldRemoveLastActiveSystemAdministrator(
+            previousRole, await _userRepository.CountActiveSystemAdministratorsAsync()))
+        {
+            return Conflict("Cannot change the role of the last active System Administrator account.");
+        }
+
         var actorUserId = _actorContext.ActorUserId ?? "unknown";
         user.ApplyRoleOverride(newRole, actorUserId);
         await _userRepository.UpdateAsync(user);
@@ -101,7 +137,6 @@ public sealed class AdminUsersController : ControllerBase
     {
         id = user.Id,
         username = user.Username,
-        subject_ref = user.SubjectRef,
         client_id = user.ClientId,
         identity_type = user.IdentityType.ToString(),
         mapped_role = user.MappedRole.ToString(),
@@ -113,6 +148,6 @@ public sealed class AdminUsersController : ControllerBase
     };
 }
 
-public sealed record CreateBreakGlassUserRequest(string Username, string Password, string Role);
+public sealed record CreateUserRequest(string Username, string Password, string Role);
 
 public sealed record RoleOverrideRequest(string Role);

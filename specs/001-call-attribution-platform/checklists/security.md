@@ -9,16 +9,16 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Is the accepted MFA method (or methods) for break-glass sign-in specified — TOTP, hardware key, SMS — or left fully open? [Gap, Spec §FR-046]
+- [x] CHK001 Is the accepted MFA method (or methods) for sign-in specified — TOTP, hardware key, SMS — or left fully open? [Gap, Spec §FR-046] — Resolved via clarification 2026-08-17: TOTP, mandatory for every local account (no longer break-glass-only).
 - [ ] CHK002 Is the retention/de-identification job's run cadence specified (continuous, daily, etc.), given FR-040 requires purge or de-identification "automatically once it expires"? [Gap, Spec §FR-040]
 - [ ] CHK003 Are the webhook payload's authentication or signing requirements specified, so a customer's endpoint can verify a request genuinely originated from the platform rather than a spoofed sender? [Gap, Spec §FR-047]
 - [ ] CHK004 Is the acknowledgement authority for an alert restricted to specific roles, or can any authenticated user acknowledge any alert? [Gap, Spec §FR-047]
 
 ## Requirement Clarity
 
-- [x] CHK005 Is the JWT lifetime/expiry duration quantified anywhere, given it underpins both FR-046's federation model and SC-016's immediate-revocation bar? [Gap, Ambiguity, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: 5-minute lifetime with silent refresh.
+- [x] CHK005 Is the JWT lifetime/expiry duration quantified anywhere, given it underpins both FR-046's sign-in model and SC-016's immediate-revocation bar? [Gap, Ambiguity, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: 5-minute access-token lifetime; 2026-08-17 clarified the refresh mechanism as a rotating refresh token rather than federated-session silent refresh.
 - [ ] CHK006 Are the specific fields that must be redacted or surrogate-replaced during de-identification enumerated, or is "identifiers" left to implementation judgment? [Clarity, Spec §FR-040]
-- [ ] CHK007 Is the break-glass account default of 2 stated as a floor, a default, or a ceiling — is a customer explicitly permitted to configure more (or fewer)? [Clarity, Spec §FR-046]
+- [x] CHK007 Is any account count still capped now that local sign-in is the platform's sole interactive method rather than a break-glass fallback? [Clarity, Spec §FR-046] — Resolved via clarification 2026-08-17: the former break-glass cap of 2 no longer applies; local accounts are unlimited, with the sole constraint that at least one active System Administrator account must always exist.
 
 ## Requirement Consistency
 

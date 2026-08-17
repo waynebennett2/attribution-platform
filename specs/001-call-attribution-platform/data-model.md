@@ -224,19 +224,19 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 | Field | Notes |
 |---|---|
 | id | |
-| subject_ref | nullable — IdP subject, null for break-glass and integration-service accounts (FR-046) |
-| username | nullable — break-glass accounts only |
+| username | nullable — integration-service accounts only, which authenticate via `client_id`/API key instead |
 | client_id | nullable — integration-service accounts only |
-| identity_type | federated \| break_glass \| integration_service |
-| mapped_role | System Administrator \| Marketing Administrator \| Analyst \| Integration Service |
-| role_override | nullable — administrator-set override of the mapped role, audited (FR-046) |
-| role_overridden_by | nullable — who applied the override |
-| password_hash, totp_secret | nullable — break-glass accounts only; a federated account never has either, since FR-046 requires the platform to never store a password for federated users |
-| mfa_required | true for break_glass (FR-046) |
+| identity_type | local \| integration_service |
+| mapped_role | the role assigned when the account was created: System Administrator \| Marketing Administrator \| Analyst \| Integration Service |
+| role_override | nullable — a System Administrator's later change to the role, audited (FR-046) |
+| role_overridden_by | nullable — who applied the change |
+| password_hash, totp_secret | set for `local` accounts only; null for `integration_service`, which never signs in interactively |
+| mfa_required | true for every `local` account (FR-046) |
+| refresh_token_hash, refresh_token_expires_at | nullable — the current rotating refresh token's hash and expiry for a signed-in `local` account (FR-046); cleared on sign-out or deactivation |
 | is_active | |
 | created_at, last_seen_at | |
 
-**Constraint**: default of 2 `break_glass` rows, configurable (FR-046); `integration_service` identity_type is barred from interactive session issuance (FR-038). No HTTP endpoint exists for federated sign-in itself — that path is the identity provider's own SSO flow redirecting back with an already-established session, which this repository has no live provider to exercise. The one interactive sign-in surface actually implemented is break-glass (`POST /v1/auth/break-glass/sign-in`, contracts/admin-api.md).
+**Constraint**: `local` accounts are unlimited and are how every interactive user (System Administrator, Marketing Administrator, Analyst) signs in — there is no cap and no separate "break-glass" tier, since there is no other sign-in path for those accounts to be a fallback from. `integration_service` identity_type is barred from interactive session issuance (FR-038). At least one active `local` account with the System Administrator role MUST always exist; deactivating the last one is rejected. The one interactive sign-in surface is `POST /v1/auth/sign-in` (username, password, TOTP code), with `POST /v1/auth/refresh` (refresh token) to obtain a new access/refresh pair — see contracts/admin-api.md.
 
 ## Alert
 
