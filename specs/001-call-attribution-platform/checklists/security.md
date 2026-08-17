@@ -28,7 +28,7 @@
 ## Acceptance Criteria Quality
 
 - [ ] CHK010 Can "zero identifiers are stored on the device" (SC-013) be objectively verified given a browser exposes multiple storage surfaces (cookies, localStorage, IndexedDB, cache, service-worker storage) — does the requirement enumerate which surfaces are in scope for verification? [Measurability, Spec §SC-013]
-- [x] CHK011 Is the mechanism by which SC-016's "next request" revocation is actually achieved specified (per-request identity-provider check vs. a very short token TTL vs. token introspection), or only the outcome asserted? [Gap, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: short-lived JWT (~5 min) + silent refresh.
+- [x] CHK011 Is the mechanism by which SC-016's "next request" revocation is actually achieved specified (per-request identity-provider check vs. a very short token TTL vs. token introspection), or only the outcome asserted? [Gap, Spec §FR-046, SC-016] — Resolved via clarification 2026-08-10: short-lived JWT (~5 min); 2026-08-17 clarified the refresh mechanism as a rotating refresh token (exchanged before each access-token expiry, refused once the account is deactivated) rather than the originally-specified silent refresh against a federated identity provider's browser session.
 
 ## Scenario Coverage
 

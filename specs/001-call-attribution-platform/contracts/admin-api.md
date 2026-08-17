@@ -36,7 +36,7 @@ All endpoints require a platform-issued JWT (FR-046) and enforce RBAC per FR-038
 | GET | `/v1/admin/users` | lists every local account (System Administrator, Marketing Administrator, Analyst) and its effective role |
 | POST | `/v1/admin/users` | `{ "username", "password", "role" }` → creates a local account, generating a fresh TOTP secret returned once as an `otpauth://` provisioning URI for the administrator to hand to whoever will hold it |
 | POST | `/v1/admin/users/{id}/deactivate` | audited; rejected with 409 if this would leave zero active System Administrator accounts (FR-046) |
-| POST | `/v1/admin/users/{id}/role-override` | `{ "role": "..." }` — audited (FR-046) |
+| POST | `/v1/admin/users/{id}/role-override` | `{ "role": "..." }` — audited; rejected with 409 if this would leave zero active System Administrator accounts, same guard as `/deactivate` (FR-046) |
 
 ## Integration health (FR-034)
 
