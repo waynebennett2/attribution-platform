@@ -40,9 +40,9 @@ body {
 /* ---- Header ---- */
 
 .site-header {
-  background: var(--navy);
-  color: var(--cream);
-  padding: 1.25rem 0;
+  background: #fff;
+  color: var(--navy);
+  padding: 0.85rem 0;
   border-bottom: 3px solid var(--gold);
 }
 
@@ -59,8 +59,14 @@ body {
   text-decoration: none;
 }
 
+.logo-link img {
+  display: block;
+  height: 56px;
+  width: auto;
+}
+
 .site-header nav a {
-  color: var(--cream);
+  color: var(--navy);
   text-decoration: none;
   font-family: "Helvetica Neue", Arial, sans-serif;
   font-size: 0.85rem;
@@ -69,7 +75,7 @@ body {
 }
 
 .site-header nav a:hover {
-  color: var(--gold-light);
+  color: var(--gold);
 }
 
 /* ---- Hero / description ---- */
