@@ -249,6 +249,7 @@ body {
   width: 100%;
   aspect-ratio: 4 / 3;
   display: block;
+  object-fit: cover;
   background: var(--navy);
 }
 
