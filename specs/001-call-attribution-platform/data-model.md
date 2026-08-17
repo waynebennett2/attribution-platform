@@ -20,6 +20,7 @@ Configuration root for a tracked property.
 | cooldown_seconds | default = allocation_window_extension_seconds; MUST be ≥ it (FR-006) |
 | consent_required | |
 | shadow_mode_enabled | default false (FR-049) |
+| multi_pool_enabled | default false — per-website opt-in for multi-pool DNI matching, same pattern as shadow_mode_enabled (FR-050) |
 | business_unit | for pool scoping (FR-004) |
 | local_timezone | used to evaluate a qualification rule's time-of-day condition (FR-023), independent of the canonical storage timezone |
 | created_at, updated_at | |
@@ -34,8 +35,10 @@ Configuration root for a tracked property.
 | name | |
 | scope_type | website \| campaign \| business_unit (FR-004) |
 | scope_ref | id of the website/campaign/business-unit this pool is scoped to |
-| default_number | overrides Website.default_number if set (FR-007) |
+| default_number | overrides Website.default_number if set (FR-007); also the number matched against page content on a `multi_pool_enabled` website (FR-050) — the pool's equivalent of Website.default_number for matching purposes |
 | created_at, updated_at | |
+
+**Validation**: among pools sharing the same `scope_ref` (i.e. the same website) where that Website has `multi_pool_enabled`, `default_number` MUST be unique — reject a create/update that would leave two such pools with the same digit sequence in `default_number` (FR-050). This is a separate constraint from Tracking Number's exactly-one-pool-at-a-time rule (FR-004): `default_number` is an unallocated display value, not a Tracking Number row.
 
 **Relationships**: one Website may use multiple Number Pools (via scope); one Number Pool holds many Tracking Numbers.
 
@@ -69,7 +72,7 @@ The binding of one Tracking Number to one Session for a bounded window — the s
 | is_shadow | true if FR-049 shadow-observed rather than platform-allocated |
 | created_at | |
 
-**Invariants**: for a given `tracking_number_id`, no two Allocation rows' `[window_start, window_end)` may overlap in ordinary (non-shadow) operation — enforced at allocation time by the cooldown check (FR-006); shadow-mode Allocations are exempt from this invariant and instead feed the ambiguity path (FR-021, FR-049) when they do overlap.
+**Invariants**: for a given `tracking_number_id`, no two Allocation rows' `[window_start, window_end)` may overlap in ordinary (non-shadow) operation — enforced at allocation time by the cooldown check (FR-006); shadow-mode Allocations are exempt from this invariant and instead feed the ambiguity path (FR-021, FR-049) when they do overlap. Where the owning Session's Website has `multi_pool_enabled`, a session MAY hold more than one concurrently active Allocation — one per matched pool (FR-050) — and concurrently active Allocations for the same `session_id` MUST have distinct `pool_id_at_allocation`: a session can never hold two simultaneous allocations from the same pool.
 
 ## Visitor
 
@@ -100,7 +103,7 @@ The binding of one Tracking Number to one Session for a bounded window — the s
 | ended_at | nullable — set on timeout or consent withdrawal |
 | de_identified_at | nullable — set at the 14-month retention threshold, alongside the utm_*/gclid/gbraid/wbraid/ga4_client_id/landing_page/referrer fields above being nulled (FR-040) |
 
-**Relationships**: one Session has zero-or-one active Allocation at a time (FR-010); a Session may have historical Allocations if it re-allocates after a mid-session change (e.g., consent-withdrawal-then-none, since re-grant would be a new session per FR-039's "create the session" language).
+**Relationships**: one Session has zero-or-one active Allocation at a time (FR-010) — except where its Website has `multi_pool_enabled`, in which case a Session may hold zero, one, or several concurrently active Allocations, one per matched pool (FR-050), and that set can grow over the session's lifetime as later page views match pools not yet held (research.md §15). A Session may also have historical Allocations if it re-allocates after a mid-session change (e.g., consent-withdrawal-then-none, since re-grant would be a new session per FR-039's "create the session" language).
 
 ## Call
 

@@ -32,6 +32,18 @@ Seed a Website, a Number Pool with a handful of active Tracking Numbers, and the
 
 **Pass bar**: matches User Story 1's Acceptance Scenarios 1–6 exactly.
 
+## 2a. Story 1 extension — multi-pool DNI matching (FR-050, Acceptance Scenario 7)
+
+1. Seed a Website with `multi_pool_enabled = true` and three Number Pools scoped to it, each with a distinct `default_number` and its own available Tracking Numbers.
+2. Load a test page containing all three pools' `default_number`s (a directory-style fixture, e.g. `client/dni-script/tests/fixtures/multi-pool.html`), consent granted.
+3. Confirm the first `POST /v1/dni/allocate` (no `matched_pool_ids`) returns the `pools` map and no session; confirm the client then digit-normalized-matches all three `default_number`s against the page and issues a second `/v1/dni/allocate` with `matched_pool_ids` covering all three.
+4. Confirm the response carries one `session_id` and three `allocations`, and that each pool's occurrence on the page shows that pool's own allocated number — three different tracking numbers on one page, not one shared number (contrast with Acceptance Scenario 1's single-pool case).
+5. Confirm one `POST /v1/dni/heartbeat` call keeps all three allocations alive together (`allocations` array in the response), not three separate heartbeat calls.
+6. Exhaust one pool's Tracking Numbers before a fresh visitor loads the page; confirm that pool's occurrences show its own `default_number` while the other two pools still allocate and display normally.
+7. Navigate to a second page matching only one of the three pools plus a pool not present on page one; confirm the session keeps its existing allocations and gains one more for the newly-matched pool, rather than starting a new session.
+
+**Pass bar**: matches User Story 1's Acceptance Scenario 7 exactly; a `multi_pool_enabled = false` website re-run through steps 1–5 of §2 above shows no behavioural difference from before FR-050 existed.
+
 ## 3. Story 2 — Deterministic attribution (SC-001, SC-002)
 
 Seed the exact call set SC-001 specifies: one call inside the allocation window, one after session expiry but inside the FR-018 extension, one after the window closed, one to a never-allocated number, one to a suspended number, one spanning a daylight-saving transition, one placed across midnight. Feed each as a synthetic Call Detail Record through the ingestion path (or directly via a test seam into the attribution service).
