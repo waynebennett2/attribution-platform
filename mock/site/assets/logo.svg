@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 64" width="240" height="37" role="img" aria-label="Meridian and Manor Healthcare logo">
+  <defs>
+    <linearGradient id="mm-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d8bd8a" />
+      <stop offset="1" stop-color="#b9924f" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(0,6)">
+    <path d="M26 2 L48 14 V34 C48 45 38 51 26 55 C14 51 4 45 4 34 V14 Z"
+          fill="none" stroke="url(#mm-gold)" stroke-width="2.5" />
+    <path d="M26 12 V44 M14 28 H38" stroke="url(#mm-gold)" stroke-width="2.5" stroke-linecap="round" />
+  </g>
+  <text x="66" y="30" font-family="Georgia, 'Iowan Old Style', serif" font-size="22" fill="#faf6ee" letter-spacing="0.5">
+    Meridian <tspan fill="#d8bd8a">&amp;</tspan> Manor
+  </text>
+  <text x="66" y="48" font-family="Helvetica Neue, Arial, sans-serif" font-size="10.5" fill="#d8bd8a" letter-spacing="3">
+    HEALTHCARE
+  </text>
+</svg>

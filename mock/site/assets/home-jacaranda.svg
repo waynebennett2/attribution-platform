@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Illustration of Jacaranda Ridge Care Home">
+  <rect width="400" height="300" fill="#0f2438" />
+  <rect width="400" height="300" fill="#1a2f47" />
+  <circle cx="70" cy="50" r="26" fill="#d8bd8a" opacity="0.8" />
+  <rect x="0" y="195" width="400" height="105" fill="#2c3f2b" />
+  <rect x="50" y="110" width="300" height="110" fill="#33506a" stroke="#b9924f" stroke-width="2" />
+  <rect x="50" y="80" width="300" height="34" fill="#0a1826" stroke="#b9924f" stroke-width="2" />
+  <rect x="190" y="160" width="32" height="60" fill="#0a1826" />
+  <rect x="75" y="140" width="30" height="30" fill="#d8bd8a" opacity="0.5" />
+  <rect x="130" y="140" width="30" height="30" fill="#d8bd8a" opacity="0.5" />
+  <rect x="240" y="140" width="30" height="30" fill="#d8bd8a" opacity="0.5" />
+  <rect x="295" y="140" width="30" height="30" fill="#d8bd8a" opacity="0.5" />
+  <text x="200" y="270" text-anchor="middle" font-family="Georgia, serif" font-size="20" fill="#faf6ee">Jacaranda Ridge</text>
+</svg>

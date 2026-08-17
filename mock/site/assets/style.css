@@ -1,0 +1,425 @@
+/* Meridian & Manor Healthcare — mock demo site styling.
+   Palette: deep navy + warm gold + cream, evoking a "boutique hotel" healthcare brand. */
+
+:root {
+  --navy: #0f2438;
+  --navy-deep: #0a1826;
+  --gold: #b9924f;
+  --gold-light: #d8bd8a;
+  --cream: #faf6ee;
+  --ink: #1c2b38;
+  --muted: #5c6b78;
+  --line: #e4dcca;
+  --radius: 10px;
+  --shadow: 0 10px 30px rgba(15, 36, 56, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Georgia", "Iowan Old Style", "Palatino Linotype", serif;
+  color: var(--ink);
+  background: var(--cream);
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ---- Header ---- */
+
+.site-header {
+  background: var(--navy);
+  color: var(--cream);
+  padding: 1.25rem 0;
+  border-bottom: 3px solid var(--gold);
+}
+
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.site-header nav a {
+  color: var(--cream);
+  text-decoration: none;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-header nav a:hover {
+  color: var(--gold-light);
+}
+
+/* ---- Hero / description ---- */
+
+.hero {
+  padding: 3rem 0 2.5rem;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 2.1rem;
+  color: var(--navy);
+  margin: 0 0 0.25rem;
+  letter-spacing: 0.01em;
+}
+
+.hero .tagline {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.78rem;
+  margin-bottom: 1.75rem;
+}
+
+.hero p {
+  max-width: 760px;
+  margin: 0 auto 1.1rem;
+  color: var(--muted);
+  font-size: 1.02rem;
+}
+
+/* ---- Search panel ---- */
+
+.search-panel {
+  max-width: 560px;
+  margin: 2.5rem auto 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+  text-align: center;
+}
+
+.search-panel h2 {
+  margin: 0 0 0.35rem;
+  color: var(--navy);
+  font-size: 1.3rem;
+}
+
+.search-panel p.hint {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.search-form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.search-form input[type="text"] {
+  flex: 1 1 240px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  text-transform: uppercase;
+}
+
+.search-form input[type="text"]:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.btn {
+  display: inline-block;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.4rem;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: var(--cream);
+}
+
+.btn-primary:hover {
+  background: var(--navy-deep);
+}
+
+.btn-gold {
+  background: var(--gold);
+  color: var(--navy-deep);
+}
+
+.btn-gold:hover {
+  background: var(--gold-light);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--navy);
+  border: 1px solid var(--line);
+}
+
+.btn-ghost:hover {
+  border-color: var(--gold);
+}
+
+.field-error {
+  color: #a13a2f;
+  font-size: 0.82rem;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  margin-top: 0.6rem;
+  min-height: 1.1em;
+}
+
+/* ---- Results page ---- */
+
+.results-header {
+  text-align: center;
+  padding: 2.5rem 0 1rem;
+}
+
+.results-header h1 {
+  color: var(--navy);
+  margin: 0 0 0.35rem;
+}
+
+.results-header .search-term {
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.results-header a.change-search {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.75rem;
+  padding: 1.5rem 0 3.5rem;
+}
+
+.home-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.home-card .home-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+  background: var(--navy);
+}
+
+.home-card .home-body {
+  padding: 1.35rem 1.4rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.home-card h3 {
+  margin: 0 0 0.15rem;
+  color: var(--navy);
+  font-size: 1.2rem;
+}
+
+.home-card .home-strapline {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: var(--gold);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.65rem;
+}
+
+.home-card .home-best-for {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+.home-card .home-best-for strong {
+  color: var(--ink);
+}
+
+.home-card p.home-desc {
+  color: var(--ink);
+  font-size: 0.95rem;
+  margin: 0 0 1rem;
+  flex: 1;
+}
+
+.home-card .home-phone {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 0.9rem;
+}
+
+.home-card .home-phone a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.home-card .home-phone a:hover {
+  color: var(--gold);
+}
+
+/* ---- Footer ---- */
+
+.site-footer {
+  background: var(--navy-deep);
+  color: #b9c2cb;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.8rem;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.site-footer button.link-btn {
+  background: none;
+  border: none;
+  color: #b9c2cb;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+/* ---- Cookie / consent banner ---- */
+
+.consent-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--navy-deep);
+  color: var(--cream);
+  border-top: 3px solid var(--gold);
+  padding: 1rem 1.25rem;
+  z-index: 1000;
+  display: none;
+}
+
+.consent-banner.visible {
+  display: block;
+}
+
+.consent-banner .consent-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.consent-banner p {
+  margin: 0;
+  flex: 1 1 420px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  color: #d7dde2;
+}
+
+.consent-banner .consent-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* ---- Settings / debug panel ---- */
+
+details.settings {
+  max-width: 1080px;
+  margin: 0 auto;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+details.settings summary {
+  cursor: pointer;
+  color: #8b98a3;
+  font-size: 0.75rem;
+}
+
+.settings-body {
+  padding: 0.75rem 0 0.25rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-body input[type="text"] {
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid #33424f;
+  background: #16283a;
+  color: var(--cream);
+  font-size: 0.78rem;
+  min-width: 260px;
+}
+
+.settings-body .btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+#dni-status {
+  max-width: 1080px;
+  margin: 0.5rem auto 0;
+  padding: 0.6rem 1rem;
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 0.72rem;
+  color: #8b98a3;
+  white-space: pre-wrap;
+}

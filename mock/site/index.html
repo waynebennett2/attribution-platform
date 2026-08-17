@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meridian &amp; Manor Healthcare — Find a Care Home Near You</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo-link" href="index.html">
+          <img src="assets/logo.svg" alt="Meridian &amp; Manor Healthcare" width="240" height="37" />
+        </a>
+        <nav>
+          <a href="care-homes.html">Our Care Homes</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero container">
+        <p class="tagline">Luxury Residential · Nursing · Specialist Memory Care</p>
+        <h1>Meridian &amp; Manor Healthcare</h1>
+        <p>
+          Meridian &amp; Manor Healthcare is a premier provider of luxury residential, nursing,
+          and specialist memory care across the region. Founded on the principles of dignity,
+          clinical excellence, and architectural beauty, our group operates a curated portfolio
+          of purpose-built care communities and beautifully restored historic estates.
+        </p>
+        <p>
+          We believe that exceptional care requires an exceptional environment. Every property
+          within the Meridian &amp; Manor family combines state-of-the-art medical support
+          infrastructure with the warmth, comfort, and premium hospitality of a five-star
+          boutique hotel.
+        </p>
+        <p>
+          Our person-centred approach ensures that our residents do not simply adapt to
+          care&mdash;they continue to thrive, explore new passions, and live with complete peace
+          of mind. Guided by a leadership team with decades of combined experience in premium
+          healthcare compliance, we set the benchmark for luxury senior living.
+        </p>
+      </section>
+
+      <section class="search-panel">
+        <h2>Find a Care Home Nearby</h2>
+        <p class="hint">Enter your postcode to see care homes in your area.</p>
+        <form id="postcode-form" class="search-form" novalidate>
+          <input
+            type="text"
+            id="postcode-input"
+            name="postcode"
+            placeholder="e.g. SN1 1AB"
+            autocomplete="postal-code"
+            aria-label="UK postcode"
+          />
+          <button type="submit" class="btn btn-gold">Find Care Home</button>
+        </form>
+        <p class="field-error" id="postcode-error"></p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        &copy; 2026 Meridian &amp; Manor Healthcare. Demo site for the Call Attribution
+        Platform &mdash; not a real company.
+        <button type="button" class="link-btn" id="manage-cookies">Manage cookie preferences</button>
+      </p>
+      <details class="settings">
+        <summary>Demo settings (attribution API endpoint)</summary>
+        <div class="settings-body">
+          <input type="text" id="api-base-input" placeholder="http://localhost:8080" />
+          <button type="button" class="btn btn-ghost" id="api-base-save">Save &amp; reload</button>
+        </div>
+      </details>
+    </footer>
+
+    <div id="dni-status"></div>
+
+    <div class="consent-banner" id="consent-banner">
+      <div class="consent-inner">
+        <p>
+          We use call-routing technology to show you a dedicated phone number so we can
+          understand which pages help visitors reach us. No personal data is collected until
+          you consent.
+        </p>
+        <div class="consent-actions">
+          <button type="button" class="btn btn-ghost" id="consent-decline">Decline</button>
+          <button type="button" class="btn btn-gold" id="consent-accept">Accept</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/attribution.js"></script>
+    <script src="assets/search.js"></script>
+    <script type="module" src="../../client/dni-script/src/index.js"></script>
+  </body>
+</html>

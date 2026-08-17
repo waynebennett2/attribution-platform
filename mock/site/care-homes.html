@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meridian &amp; Manor Healthcare — Care Homes Near You</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="logo-link" href="index.html">
+          <img src="assets/logo.svg" alt="Meridian &amp; Manor Healthcare" width="240" height="37" />
+        </a>
+        <nav>
+          <a href="index.html">Home</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="results-header container">
+        <h1>Care Homes Near <span class="search-term" id="postcode-display">Your Postcode</span></h1>
+        <p>Showing our three nearest communities.</p>
+        <a class="change-search" href="index.html">&larr; Change search</a>
+      </section>
+
+      <section class="container">
+        <div class="home-grid">
+          <article class="home-card">
+            <img class="home-image" src="assets/home-protea.svg" alt="Protea Haven Care Home" />
+            <div class="home-body">
+              <h3>Protea Haven Care Home</h3>
+              <p class="home-strapline">Traditional and peaceful</p>
+              <p class="home-best-for"><strong>Best for:</strong> Residential and respite care</p>
+              <p class="home-desc">
+                Protea Haven is a purpose-built, welcoming care home in Swindon. Our experienced
+                teams offer residential and nursing care on a permanent and respite basis. Protea
+                Haven focuses on countryside views and a relaxing atmosphere.
+              </p>
+              <p class="home-phone">
+                Call now: <a href="tel:01632960000" data-attribution-number>01632 960000</a>
+              </p>
+            </div>
+          </article>
+
+          <article class="home-card">
+            <img class="home-image" src="assets/home-jacaranda.svg" alt="Jacaranda Ridge Care Home" />
+            <div class="home-body">
+              <h3>Jacaranda Ridge Care Home</h3>
+              <p class="home-strapline">Strength, stability and expert support</p>
+              <p class="home-best-for"><strong>Best for:</strong> Specialist dementia care</p>
+              <p class="home-desc">
+                Jacaranda Ridge is a purpose-built, welcoming specialist dementia care home in
+                Chippenham, with a calm, structured environment designed around residents' comfort
+                and safety.
+              </p>
+              <p class="home-phone">
+                Call now: <a href="tel:01632960000" data-attribution-number>01632 960000</a>
+              </p>
+            </div>
+          </article>
+
+          <article class="home-card">
+            <img class="home-image" src="assets/home-silvertree.svg" alt="Silver Tree Elder Care" />
+            <div class="home-body">
+              <h3>Silver Tree Elder Care</h3>
+              <p class="home-strapline">High-end and premium</p>
+              <p class="home-best-for"><strong>Best for:</strong> Luxury nursing care</p>
+              <p class="home-desc">
+                Set in South Marston, Silver Tree Elder Care focuses on large, historic grounds
+                and top-tier facilities, offering a five-star standard of nursing care.
+              </p>
+              <p class="home-phone">
+                Call now: <a href="tel:01632960000" data-attribution-number>01632 960000</a>
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        &copy; 2026 Meridian &amp; Manor Healthcare. Demo site for the Call Attribution
+        Platform &mdash; not a real company.
+        <button type="button" class="link-btn" id="manage-cookies">Manage cookie preferences</button>
+      </p>
+      <details class="settings">
+        <summary>Demo settings (attribution API endpoint)</summary>
+        <div class="settings-body">
+          <input type="text" id="api-base-input" placeholder="http://localhost:8080" />
+          <button type="button" class="btn btn-ghost" id="api-base-save">Save &amp; reload</button>
+        </div>
+      </details>
+    </footer>
+
+    <div id="dni-status"></div>
+
+    <div class="consent-banner" id="consent-banner">
+      <div class="consent-inner">
+        <p>
+          We use call-routing technology to show you a dedicated phone number so we can
+          understand which pages help visitors reach us. No personal data is collected until
+          you consent.
+        </p>
+        <div class="consent-actions">
+          <button type="button" class="btn btn-ghost" id="consent-decline">Decline</button>
+          <button type="button" class="btn btn-gold" id="consent-accept">Accept</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var qsPostcode = new URLSearchParams(window.location.search).get("postcode");
+      if (qsPostcode) {
+        document.getElementById("postcode-display").textContent = qsPostcode;
+      }
+    </script>
+    <script src="assets/attribution.js"></script>
+    <script type="module" src="../../client/dni-script/src/index.js"></script>
+  </body>
+</html>
