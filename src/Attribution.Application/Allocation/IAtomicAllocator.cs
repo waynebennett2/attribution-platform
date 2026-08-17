@@ -23,4 +23,18 @@ public interface IAtomicAllocator
         DateTimeOffset windowStart,
         TimeSpan allocationWindowExtension,
         DateTimeOffset now);
+
+    // FR-050: allocates one additional pool's number onto a Session that is already
+    // persisted — a multi-pool session's second-and-later pool at creation time (once the
+    // first pool's TryAllocateAsync call has already inserted the Visitor and Session), or
+    // growing an already-active session on a later page view (research.md §15). Same
+    // per-pool atomic SKIP LOCKED pick as TryAllocateAsync, without inserting a Visitor or
+    // Session that already exists.
+    Task<AllocationAttemptResult> TryAllocateAdditionalAsync(
+        Session session,
+        Guid poolId,
+        TimeSpan cooldown,
+        DateTimeOffset windowStart,
+        TimeSpan allocationWindowExtension,
+        DateTimeOffset now);
 }

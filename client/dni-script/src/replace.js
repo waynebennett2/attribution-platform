@@ -179,6 +179,34 @@ function walkTextNodes(root, callback) {
   }
 }
 
+// FR-050: does root currently display `number` anywhere (text or a tel: link)? Used to
+// locally match a multi-pool website's pools against the current page — the same
+// digit-normalized matching FR-009 already defines for a single configured number, reused
+// rather than reimplemented.
+export function matchesPage(root, number) {
+  const digits = toDigits(number);
+  if (!digits) {
+    return false;
+  }
+
+  const variants = ukFormVariants(digits);
+  const patterns = variants.map(buildMatchPattern).filter(Boolean);
+  const text = root.textContent || "";
+  if (
+    patterns.some((pattern) => {
+      pattern.lastIndex = 0;
+      return pattern.test(text);
+    })
+  ) {
+    return true;
+  }
+
+  const digitSets = new Set(variants);
+  return Array.from(root.querySelectorAll('a[href^="tel:"]')).some((anchor) =>
+    digitSets.has(toDigits(anchor.getAttribute("href") || ""))
+  );
+}
+
 export function createReplacer({ configuredNumbers }) {
   // apply() is called repeatedly over a page view's lifetime with different numbers
   // (default, then allocated, then default again on withdrawal). Each call must be able

@@ -13,6 +13,7 @@ public class Website
     public int CooldownSeconds { get; private set; } = 1800; // FR-006: must be >= extension
     public bool ConsentRequired { get; private set; } = true;
     public bool ShadowModeEnabled { get; private set; } // FR-049, default false
+    public bool MultiPoolEnabled { get; private set; } // FR-050, default false
     public string? BusinessUnit { get; private set; }
     public string LocalTimezone { get; private set; } = "UTC"; // FR-023 time-of-day evaluation
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
@@ -66,6 +67,10 @@ public class Website
 
     public void DisableShadowMode() { ShadowModeEnabled = false; UpdatedAt = DateTimeOffset.UtcNow; }
 
+    public void EnableMultiPool() { MultiPoolEnabled = true; UpdatedAt = DateTimeOffset.UtcNow; }
+
+    public void DisableMultiPool() { MultiPoolEnabled = false; UpdatedAt = DateTimeOffset.UtcNow; }
+
     // Reconstructs a Website from stored state (Infrastructure only, see AssemblyInfo.cs) —
     // bypasses Create()'s validation since a persisted row was already valid when written.
     internal static Website Rehydrate(
@@ -79,6 +84,7 @@ public class Website
         int cooldownSeconds,
         bool consentRequired,
         bool shadowModeEnabled,
+        bool multiPoolEnabled,
         string? businessUnit,
         string localTimezone,
         DateTimeOffset createdAt,
@@ -94,6 +100,7 @@ public class Website
             CooldownSeconds = cooldownSeconds,
             ConsentRequired = consentRequired,
             ShadowModeEnabled = shadowModeEnabled,
+            MultiPoolEnabled = multiPoolEnabled,
             BusinessUnit = businessUnit,
             LocalTimezone = localTimezone,
             CreatedAt = createdAt,

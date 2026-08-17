@@ -16,6 +16,16 @@ public sealed class AllocationRepository : RepositoryBase, IAllocationRepository
         return row?.ToDomain();
     }
 
+    // FR-050: every Allocation row for this session, regardless of pool — a multi-pool
+    // session can hold more than one concurrently.
+    public async Task<IReadOnlyList<Allocation>> GetAllBySessionIdAsync(Guid sessionId)
+    {
+        using var connection = OpenConnection();
+        var rows = await connection.QueryAsync<AllocationRow>(
+            "SELECT * FROM allocations WHERE session_id = @SessionId", new { SessionId = sessionId.ToString() });
+        return rows.Select(r => r.ToDomain()).ToList();
+    }
+
     // FR-018: attribution's core lookup — which allocation(s) held this number at the
     // call's start time. More than one row back means ambiguous (FR-021); zero means
     // unattributed (FR-020).

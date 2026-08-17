@@ -9,6 +9,11 @@ function key(websiteId) {
   return `${KEY_PREFIX}${websiteId}`;
 }
 
+// FR-050: pools/allocations are present only for a multi-pool session (undefined for a
+// single-pool one, leaving its stored shape exactly what it always has been) — pools is
+// the website's pool->number map (fetched once, cached across page views per research.md
+// §15), allocations maps pool_id -> { number, expiresAt } for every pool this session
+// currently holds.
 export function loadSession(websiteId) {
   try {
     const raw = window.localStorage.getItem(key(websiteId));
@@ -16,7 +21,7 @@ export function loadSession(websiteId) {
       return null;
     }
     const parsed = JSON.parse(raw);
-    if (!parsed.sessionId || !parsed.number || !parsed.expiresAt) {
+    if (!parsed.sessionId || !parsed.expiresAt || (!parsed.number && !parsed.pools)) {
       return null;
     }
     if (new Date(parsed.expiresAt).getTime() <= Date.now()) {
@@ -28,9 +33,12 @@ export function loadSession(websiteId) {
   }
 }
 
-export function saveSession(websiteId, { sessionId, number, expiresAt }) {
+export function saveSession(websiteId, { sessionId, number, expiresAt, pools, allocations }) {
   try {
-    window.localStorage.setItem(key(websiteId), JSON.stringify({ sessionId, number, expiresAt }));
+    window.localStorage.setItem(
+      key(websiteId),
+      JSON.stringify({ sessionId, number, expiresAt, pools, allocations })
+    );
   } catch {
     // Storage unavailable — the session simply won't survive a full page navigation;
     // in-memory state still covers the current page view.

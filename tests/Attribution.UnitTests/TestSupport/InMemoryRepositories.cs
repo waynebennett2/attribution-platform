@@ -1,4 +1,5 @@
 using Attribution.Application.Administration;
+using Attribution.Application.Allocation;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Calls;
 using Attribution.Domain.Pools;
@@ -108,12 +109,31 @@ internal sealed class FakeTrackingNumberRepository : ITrackingNumberRepository
     public Task UpdateAsync(TrackingNumber number) => Task.CompletedTask;
 }
 
+internal sealed class FakeNumberPoolRepository : INumberPoolRepository
+{
+    public List<NumberPool> Pools { get; } = new();
+
+    public Task<NumberPool?> GetByIdAsync(Guid id) => Task.FromResult(Pools.FirstOrDefault(p => p.Id == id));
+
+    public Task<IReadOnlyList<NumberPool>> GetByScopeAsync(string scopeType, Guid scopeRef) =>
+        Task.FromResult<IReadOnlyList<NumberPool>>(Pools.Where(p => p.ScopeType == scopeType && p.ScopeRef == scopeRef).ToList());
+
+    public Task AddAsync(NumberPool pool)
+    {
+        Pools.Add(pool);
+        return Task.CompletedTask;
+    }
+}
+
 internal sealed class FakeAllocationRepository : IAllocationRepository
 {
     public List<DomainAllocation> Allocations { get; } = new();
 
     public Task<DomainAllocation?> GetBySessionIdAsync(Guid sessionId) =>
         Task.FromResult(Allocations.FirstOrDefault(a => a.SessionId == sessionId));
+
+    public Task<IReadOnlyList<DomainAllocation>> GetAllBySessionIdAsync(Guid sessionId) =>
+        Task.FromResult<IReadOnlyList<DomainAllocation>>(Allocations.Where(a => a.SessionId == sessionId).ToList());
 
     public Task<IReadOnlyList<DomainAllocation>> GetCoveringInstantAsync(Guid trackingNumberId, DateTimeOffset instant) =>
         Task.FromResult<IReadOnlyList<DomainAllocation>>(
@@ -126,6 +146,66 @@ internal sealed class FakeAllocationRepository : IAllocationRepository
     }
 
     public Task UpdateAsync(DomainAllocation allocation) => Task.CompletedTask;
+}
+
+// FR-050: a simplified stand-in for the real atomic SKIP LOCKED allocator — "available"
+// here just means "not already recorded in Allocations", which is enough to exercise
+// AllocationService's multi-pool orchestration (distinct-pool-per-session, session growth,
+// per-pool exhaustion) without needing a real database. The atomic SQL semantics
+// themselves are exercised separately, against a real MySQL instance.
+internal sealed class FakeAtomicAllocator : IAtomicAllocator
+{
+    private readonly FakeSessionRepository _sessionRepository;
+    private readonly FakeAllocationRepository _allocationRepository;
+
+    // Writes into the same FakeSessionRepository/FakeAllocationRepository instances the
+    // test injects into AllocationService, exactly as the real AtomicAllocator inserts
+    // into the same `sessions`/`allocations` tables the real repositories read from —
+    // otherwise a test asserting against the repository's own state would never see what
+    // this fake "allocated".
+    public FakeAtomicAllocator(FakeSessionRepository sessionRepository, FakeAllocationRepository allocationRepository)
+    {
+        _sessionRepository = sessionRepository;
+        _allocationRepository = allocationRepository;
+    }
+
+    public List<TrackingNumber> AvailableNumbers { get; } = new();
+    public List<Visitor> Visitors { get; } = new();
+
+    public List<Session> Sessions => _sessionRepository.Sessions;
+    public List<DomainAllocation> Allocations => _allocationRepository.Allocations;
+
+    public Task<AllocationAttemptResult> TryAllocateAsync(
+        Visitor visitor, Session session, Guid poolId, TimeSpan cooldown,
+        DateTimeOffset windowStart, TimeSpan allocationWindowExtension, DateTimeOffset now)
+    {
+        var candidate = AvailableNumbers.FirstOrDefault(n => n.PoolId == poolId && Allocations.All(a => a.TrackingNumberId != n.Id));
+        if (candidate is null)
+        {
+            return Task.FromResult(new AllocationAttemptResult(false, null));
+        }
+
+        Visitors.Add(visitor);
+        _sessionRepository.Sessions.Add(session);
+        var allocation = DomainAllocation.Create(candidate.Id, session.Id, poolId, windowStart, session.ExpiresAt, allocationWindowExtension);
+        _allocationRepository.Allocations.Add(allocation);
+        return Task.FromResult(new AllocationAttemptResult(true, allocation));
+    }
+
+    public Task<AllocationAttemptResult> TryAllocateAdditionalAsync(
+        Session session, Guid poolId, TimeSpan cooldown,
+        DateTimeOffset windowStart, TimeSpan allocationWindowExtension, DateTimeOffset now)
+    {
+        var candidate = AvailableNumbers.FirstOrDefault(n => n.PoolId == poolId && Allocations.All(a => a.TrackingNumberId != n.Id));
+        if (candidate is null)
+        {
+            return Task.FromResult(new AllocationAttemptResult(false, null));
+        }
+
+        var allocation = DomainAllocation.Create(candidate.Id, session.Id, poolId, windowStart, session.ExpiresAt, allocationWindowExtension);
+        _allocationRepository.Allocations.Add(allocation);
+        return Task.FromResult(new AllocationAttemptResult(true, allocation));
+    }
 }
 
 internal sealed class FakeReviewCaseRepository : IReviewCaseRepository

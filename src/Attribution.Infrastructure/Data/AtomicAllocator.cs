@@ -96,4 +96,61 @@ public sealed class AtomicAllocator : IAtomicAllocator
             throw;
         }
     }
+
+    // FR-050: same per-pool atomic pick as TryAllocateAsync, against a Session that already
+    // exists — no Visitor/Session insert here.
+    public async Task<AllocationAttemptResult> TryAllocateAdditionalAsync(
+        Session session,
+        Guid poolId,
+        TimeSpan cooldown,
+        DateTimeOffset windowStart,
+        TimeSpan allocationWindowExtension,
+        DateTimeOffset now)
+    {
+        using var connection = _connectionFactory.CreateOpenConnection();
+        using var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+
+        try
+        {
+            var trackingNumberId = await connection.QuerySingleOrDefaultAsync<string>(
+                """
+                SELECT tn.id FROM tracking_numbers tn
+                WHERE tn.pool_id = @PoolId
+                  AND tn.status = 'Active'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM allocations a
+                    WHERE a.tracking_number_id = tn.id
+                      AND @Now < DATE_ADD(a.window_end, INTERVAL @CooldownSeconds SECOND)
+                  )
+                ORDER BY tn.last_released_at ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+                """,
+                new { PoolId = poolId.ToString(), Now = now, CooldownSeconds = (int)cooldown.TotalSeconds },
+                transaction);
+
+            if (trackingNumberId is null)
+            {
+                transaction.Rollback();
+                return new AllocationAttemptResult(false, null);
+            }
+
+            var allocation = Allocation.Create(
+                Guid.Parse(trackingNumberId),
+                session.Id,
+                poolId,
+                windowStart,
+                session.ExpiresAt,
+                allocationWindowExtension);
+            await AllocationRepository.InsertAsync(connection, transaction, allocation);
+
+            transaction.Commit();
+            return new AllocationAttemptResult(true, allocation);
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
 }

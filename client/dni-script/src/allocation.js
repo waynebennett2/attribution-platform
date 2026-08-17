@@ -30,7 +30,10 @@ export function createAllocationClient({
     return response.json();
   }
 
-  async function allocate({ consentGranted, arrival }) {
+  // FR-050: matchedPoolIds/sessionId are omitted (undefined -> absent from the JSON body)
+  // unless the caller is a multi-pool client requesting specific pools, or resuming an
+  // already-known session (research.md §15) — a single-pool call is unaffected either way.
+  async function allocate({ consentGranted, arrival, matchedPoolIds, sessionId }) {
     return postJson("/v1/dni/allocate", {
       website_id: websiteId,
       client_token: clientToken,
@@ -42,6 +45,8 @@ export function createAllocationClient({
       gbraid: arrival.gbraid,
       wbraid: arrival.wbraid,
       ga4_client_id: arrival.ga4ClientId,
+      matched_pool_ids: matchedPoolIds,
+      session_id: sessionId,
     });
   }
 

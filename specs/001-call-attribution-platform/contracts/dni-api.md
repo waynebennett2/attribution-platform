@@ -19,7 +19,8 @@ Requests a tracking number for a new page view.
   "utm": { "source": "string", "medium": "string", "campaign": "string", "term": "string", "content": "string" },
   "gclid": "string?", "gbraid": "string?", "wbraid": "string?",
   "ga4_client_id": "string?",
-  "matched_pool_ids": ["string"]  // FR-050, multi-pool websites only — pool ids whose default_number the client found on the page; omitted/empty otherwise, and always ignored for a website with multi_pool_enabled = false
+  "matched_pool_ids": ["string"],  // FR-050, multi-pool websites only — pool ids whose default_number the client found on the page; omitted/empty otherwise, and always ignored for a website with multi_pool_enabled = false
+  "session_id": "string?"  // FR-050, multi-pool websites only — present when the client already holds a session from an earlier page view of this visit (research.md §15's session-growth case) and is requesting allocation for newly-matched pools only; omitted on the very first page view of a session, and always ignored for a website with multi_pool_enabled = false (single-pool websites never resume a session this way — FR-010's existing "no second allocation" behavior is unchanged)
 }
 ```
 
@@ -39,7 +40,7 @@ No session or allocation record is created for this response shape (FR-039, FR-0
 { "pools": [ { "pool_id": "string", "default_number": "string" } ], "...": "plus whichever shape below applies" }
 ```
 - `consent_granted = false`, or `matched_pool_ids` omitted/empty (matching not yet done): `{ "session_id": null, "reason": "no_consent | pending_match" }` alongside `pools`.
-- `consent_granted = true` and `matched_pool_ids` non-empty: the server MUST first drop any requested pool id not actually scoped to `website_id` (FR-050) — this endpoint is unauthenticated and origin-restricted rather than authenticated (FR-037), so a client-supplied id is untrusted input; silently dropping an out-of-scope id, rather than erroring, matches how a malformed/out-of-scope request is already handled elsewhere on this endpoint. One Session is then created or extended (research.md §15 — a later page view's newly-matched pools are added to an existing session's allocation set rather than starting a new session) and one Tracking Number is allocated per remaining requested pool that has one available:
+- `consent_granted = true` and `matched_pool_ids` non-empty: the server MUST first drop any requested pool id not actually scoped to `website_id` (FR-050) — this endpoint is unauthenticated and origin-restricted rather than authenticated (FR-037), so a client-supplied id is untrusted input; silently dropping an out-of-scope id, rather than erroring, matches how a malformed/out-of-scope request is already handled elsewhere on this endpoint. If the request carries `session_id` and that session is still active, its existing allocations MUST be left untouched and only the pool ids among `matched_pool_ids` it does not already hold are allocated (research.md §15's session growth); if `session_id` is absent, unknown, or expired, a new Session (and Visitor) is created and every remaining requested pool is attempted. One Tracking Number is allocated per pool attempted that has one available, and `allocations` in the response below lists only what was newly allocated by this call — a resumed session's already-held allocations are not repeated, since the client already holds them from its earlier response:
   ```json
   { "session_id": "string", "allocations": [ { "pool_id": "string", "number": "string", "expires_at": "2026-08-10T12:30:00Z" } ] }
   ```

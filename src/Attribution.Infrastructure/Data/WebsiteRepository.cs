@@ -33,11 +33,11 @@ public sealed class WebsiteRepository : RepositoryBase, IWebsiteRepository
             INSERT INTO websites
                 (id, name, permitted_origins, default_number, session_timeout_seconds,
                  heartbeat_interval_seconds, allocation_window_extension_seconds, cooldown_seconds,
-                 consent_required, shadow_mode_enabled, business_unit, local_timezone, created_at, updated_at)
+                 consent_required, shadow_mode_enabled, multi_pool_enabled, business_unit, local_timezone, created_at, updated_at)
             VALUES
                 (@Id, @Name, @PermittedOrigins, @DefaultNumber, @SessionTimeoutSeconds,
                  @HeartbeatIntervalSeconds, @AllocationWindowExtensionSeconds, @CooldownSeconds,
-                 @ConsentRequired, @ShadowModeEnabled, @BusinessUnit, @LocalTimezone, @CreatedAt, @UpdatedAt)
+                 @ConsentRequired, @ShadowModeEnabled, @MultiPoolEnabled, @BusinessUnit, @LocalTimezone, @CreatedAt, @UpdatedAt)
             """,
             WebsiteRow.FromDomain(website));
     }
@@ -52,6 +52,7 @@ public sealed class WebsiteRepository : RepositoryBase, IWebsiteRepository
                 session_timeout_seconds = @SessionTimeoutSeconds, heartbeat_interval_seconds = @HeartbeatIntervalSeconds,
                 allocation_window_extension_seconds = @AllocationWindowExtensionSeconds, cooldown_seconds = @CooldownSeconds,
                 consent_required = @ConsentRequired, shadow_mode_enabled = @ShadowModeEnabled,
+                multi_pool_enabled = @MultiPoolEnabled,
                 business_unit = @BusinessUnit, local_timezone = @LocalTimezone, updated_at = @UpdatedAt
             WHERE id = @Id
             """,
@@ -72,6 +73,7 @@ public sealed class WebsiteRepository : RepositoryBase, IWebsiteRepository
         public int CooldownSeconds { get; set; }
         public bool ConsentRequired { get; set; }
         public bool ShadowModeEnabled { get; set; }
+        public bool MultiPoolEnabled { get; set; }
         public string? BusinessUnit { get; set; }
         public string LocalTimezone { get; set; } = "UTC";
         public DateTimeOffset CreatedAt { get; set; }
@@ -80,7 +82,7 @@ public sealed class WebsiteRepository : RepositoryBase, IWebsiteRepository
         public Website ToDomain() => Website.Rehydrate(
             Guid.Parse(Id), Name, PermittedOrigins.Split('\n', StringSplitOptions.RemoveEmptyEntries),
             DefaultNumber, SessionTimeoutSeconds, HeartbeatIntervalSeconds, AllocationWindowExtensionSeconds,
-            CooldownSeconds, ConsentRequired, ShadowModeEnabled, BusinessUnit, LocalTimezone, CreatedAt, UpdatedAt);
+            CooldownSeconds, ConsentRequired, ShadowModeEnabled, MultiPoolEnabled, BusinessUnit, LocalTimezone, CreatedAt, UpdatedAt);
 
         public static object FromDomain(Website website) => new
         {
@@ -94,6 +96,7 @@ public sealed class WebsiteRepository : RepositoryBase, IWebsiteRepository
             website.CooldownSeconds,
             website.ConsentRequired,
             website.ShadowModeEnabled,
+            website.MultiPoolEnabled,
             website.BusinessUnit,
             website.LocalTimezone,
             website.CreatedAt,

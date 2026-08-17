@@ -3,13 +3,14 @@ using Attribution.Api.Middleware;
 using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Attribution.Domain.Pools;
+using Attribution.Domain.Websites;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace Attribution.Api.Controllers;
 
-// contracts/admin-api.md §Number pools & numbers. FR-001, FR-002, FR-004, FR-005, FR-051.
+// contracts/admin-api.md §Number pools & numbers. FR-001, FR-002, FR-004, FR-005, FR-050, FR-051.
 [ApiController]
 [Route("v1/admin")]
 [Authorize]
@@ -17,17 +18,20 @@ public sealed class AdminPoolsController : ControllerBase
 {
     private readonly INumberPoolRepository _poolRepository;
     private readonly ITrackingNumberRepository _trackingNumberRepository;
+    private readonly IWebsiteRepository _websiteRepository;
     private readonly IAuditLogger _auditLogger;
     private readonly NumberImportOptions _importOptions;
 
     public AdminPoolsController(
         INumberPoolRepository poolRepository,
         ITrackingNumberRepository trackingNumberRepository,
+        IWebsiteRepository websiteRepository,
         IAuditLogger auditLogger,
         IOptions<NumberImportOptions> importOptions)
     {
         _poolRepository = poolRepository;
         _trackingNumberRepository = trackingNumberRepository;
+        _websiteRepository = websiteRepository;
         _auditLogger = auditLogger;
         _importOptions = importOptions.Value;
     }
@@ -41,12 +45,33 @@ public sealed class AdminPoolsController : ControllerBase
             return BadRequest("scope_ref must be a valid id.");
         }
 
+        // FR-050: a matched number must identify exactly one pool, so while multi-pool
+        // matching is enabled for this website, two of its pools can never share a
+        // (digit-equivalent) default_number — an admin-time check, since by the time a
+        // visitor's browser is matching against the pool->number map it must already be
+        // collision-free.
+        if (request.ScopeType == "website" && !string.IsNullOrWhiteSpace(request.DefaultNumber))
+        {
+            var website = await _websiteRepository.GetByIdAsync(scopeRef);
+            if (website is { MultiPoolEnabled: true })
+            {
+                var newDigits = DigitsOnly(request.DefaultNumber);
+                var siblingPools = await _poolRepository.GetByScopeAsync("website", scopeRef);
+                if (siblingPools.Any(p => !string.IsNullOrWhiteSpace(p.DefaultNumber) && DigitsOnly(p.DefaultNumber) == newDigits))
+                {
+                    return BadRequest("default_number collides, digit-normalized, with another pool already scoped to this multi-pool-enabled website (FR-050).");
+                }
+            }
+        }
+
         var pool = NumberPool.Create(request.Name, request.ScopeType, scopeRef, request.DefaultNumber);
         await _poolRepository.AddAsync(pool);
         await _auditLogger.RecordAsync("CreatePool", "NumberPool", pool.Id.ToString(), before: null, after: pool);
 
         return CreatedAtAction(nameof(GetPool), new { id = pool.Id }, new { id = pool.Id });
     }
+
+    private static string DigitsOnly(string value) => new(value.Where(char.IsDigit).ToArray());
 
     [HttpGet("pools/{id:guid}")]
     [RequireOperation(Operation.ManagePools)]

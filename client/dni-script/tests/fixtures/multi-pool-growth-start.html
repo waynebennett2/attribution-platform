@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Multi-pool session-growth start page</title>
+  </head>
+  <body>
+    <!-- Same website_id as multi-pool.html, but shows only one of its three pools —
+         the lead-in page for the session-growth Playwright test, which then navigates to
+         multi-pool.html (showing all three) to prove the session gains the newly-matched
+         pools rather than starting a second session. -->
+    <p id="location-a">Springfield branch: 01632 960301</p>
+    <script>
+      window.__attributionConfig = {
+        apiBaseUrl: "http://localhost:9999",
+        websiteId: "33333333-3333-3333-3333-333333333333",
+        defaultNumber: "01632 960300",
+        configuredNumbers: [],
+        heartbeatIntervalMs: 300000,
+      };
+      window.__attributionConsent = { granted: true };
+    </script>
+    <script type="module" src="/src/index.js"></script>
+  </body>
+</html>

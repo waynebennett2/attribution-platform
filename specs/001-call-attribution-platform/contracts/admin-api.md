@@ -13,7 +13,7 @@ All endpoints require a platform-issued JWT (FR-046) and enforce RBAC per FR-038
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/v1/admin/pools` | scope_type + scope_ref required (FR-004) |
+| POST | `/v1/admin/pools` | scope_type + scope_ref required (FR-004); rejects a `default_number` that collides, digit-normalized, with another pool's `default_number` scoped to the same website while that website has `multi_pool_enabled` (FR-050) |
 | GET | `/v1/admin/pools/{id}` | includes current utilisation for the FR-034 warning |
 | POST | `/v1/admin/pools/{id}/numbers/import` | multipart CSV upload; response lists per-row accept/reject with reason (FR-002) |
 | GET | `/v1/admin/numbers/import-folder/files` | lists CSV files currently in the configured server-side import folder — `[{ file_name, size_bytes, modified_at }]` (FR-051) |

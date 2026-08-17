@@ -45,7 +45,12 @@ public sealed class DniController : ControllerBase
         }
 
         var arrival = ToArrivalDetails(request);
-        var result = await _allocationService.AllocateAsync(websiteId, request.ConsentGranted, arrival, DateTimeOffset.UtcNow);
+        var matchedPoolIds = ParsePoolIds(request.MatchedPoolIds);
+        Guid.TryParse(request.SessionId, out var existingSessionId);
+        var result = await _allocationService.AllocateAsync(
+            websiteId, request.ConsentGranted, arrival, DateTimeOffset.UtcNow,
+            matchedPoolIds: matchedPoolIds,
+            existingSessionId: request.SessionId is null ? null : existingSessionId);
         LogAllocationOutcome(websiteId, result);
 
         return Ok(ToDto(result));
@@ -75,8 +80,15 @@ public sealed class DniController : ControllerBase
             return Ok(new HeartbeatResponseDto { StillValid = false, Number = null });
         }
 
-        var (stillValid, number) = await _allocationService.HeartbeatAsync(sessionId, DateTimeOffset.UtcNow);
-        return Ok(new HeartbeatResponseDto { StillValid = stillValid, Number = number });
+        var result = await _allocationService.HeartbeatAsync(sessionId, DateTimeOffset.UtcNow);
+        return Ok(new HeartbeatResponseDto
+        {
+            StillValid = result.StillValid,
+            Number = result.Number,
+            Allocations = result.Allocations?
+                .Select(a => new PoolHeartbeatDto { PoolId = a.PoolId.ToString(), StillValid = a.StillValid, Number = a.Number })
+                .ToList(),
+        });
     }
 
     [HttpPost("consent")]
@@ -156,11 +168,25 @@ public sealed class DniController : ControllerBase
         dto.Utm?.Source, dto.Utm?.Medium, dto.Utm?.Campaign, dto.Utm?.Term, dto.Utm?.Content,
         dto.Gclid, dto.Gbraid, dto.Wbraid, dto.Ga4ClientId);
 
+    // FR-050: a malformed or unparsable id is silently dropped rather than erroring,
+    // matching how any other out-of-scope/malformed part of this unauthenticated request
+    // is already handled (AllocationService then further drops anything not actually
+    // scoped to the requesting website).
+    private static List<Guid>? ParsePoolIds(List<string>? poolIds) =>
+        poolIds?.Select(id => Guid.TryParse(id, out var parsed) ? parsed : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
     private static AllocateResponseDto ToDto(AllocateResult result) => new()
     {
         SessionId = result.SessionId?.ToString(),
         Number = result.Number,
         ExpiresAt = result.ExpiresAt,
         Reason = result.Reason,
+        Pools = result.Pools?.Select(p => new PoolNumberDto { PoolId = p.PoolId.ToString(), DefaultNumber = p.DefaultNumber }).ToList(),
+        Allocations = result.Allocations?
+            .Select(a => new PoolAllocationDto { PoolId = a.PoolId.ToString(), Number = a.Number, ExpiresAt = a.ExpiresAt })
+            .ToList(),
     };
 }

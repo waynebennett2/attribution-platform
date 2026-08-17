@@ -31,6 +31,39 @@ public sealed class AdminWebsitesController : ControllerBase
     [RequireOperation(Operation.ManagePools)]
     public Task<IActionResult> Disable(Guid id) => SetShadowMode(id, enable: false);
 
+    // FR-050: per-website opt-in, same configuration-only pattern as shadow mode above.
+    [HttpPost("{id:guid}/multi-pool/enable")]
+    [RequireOperation(Operation.ManagePools)]
+    public Task<IActionResult> EnableMultiPool(Guid id) => SetMultiPool(id, enable: true);
+
+    [HttpPost("{id:guid}/multi-pool/disable")]
+    [RequireOperation(Operation.ManagePools)]
+    public Task<IActionResult> DisableMultiPool(Guid id) => SetMultiPool(id, enable: false);
+
+    private async Task<IActionResult> SetMultiPool(Guid id, bool enable)
+    {
+        var website = await _websiteRepository.GetByIdAsync(id);
+        if (website is null)
+        {
+            return NotFound();
+        }
+
+        var before = new { website.MultiPoolEnabled };
+        if (enable)
+        {
+            website.EnableMultiPool();
+        }
+        else
+        {
+            website.DisableMultiPool();
+        }
+
+        await _websiteRepository.UpdateAsync(website);
+        await _auditLogger.RecordAsync("SetMultiPoolEnabled", "Website", id.ToString(), before, new { website.MultiPoolEnabled });
+
+        return NoContent();
+    }
+
     private async Task<IActionResult> SetShadowMode(Guid id, bool enable)
     {
         var website = await _websiteRepository.GetByIdAsync(id);
