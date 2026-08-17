@@ -2,6 +2,7 @@ using Attribution.Api.Middleware;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -10,6 +11,7 @@ namespace Attribution.Api.Controllers;
 // this resource by design" — matching IAuditRepository, which likewise exposes no
 // update/delete method (see AuditImmutabilityTests).
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/audit")]
 [Authorize]
 public sealed class AdminAuditController : ControllerBase

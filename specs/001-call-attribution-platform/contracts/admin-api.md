@@ -13,13 +13,23 @@ All endpoints require a platform-issued JWT (FR-046) and enforce RBAC per FR-038
 
 | Method | Path | Notes |
 |---|---|---|
+| GET | `/v1/admin/pools` | lists every pool across every scope — camelCase `scopeType`/`scopeRef`/`defaultNumber` (ASP.NET Core's default JSON policy on the ad-hoc response shape) alongside literal `number_count`/`utilisation` |
 | POST | `/v1/admin/pools` | scope_type + scope_ref required (FR-004); rejects a `default_number` that collides, digit-normalized, with another pool's `default_number` scoped to the same website while that website has `multi_pool_enabled` (FR-050) |
-| GET | `/v1/admin/pools/{id}` | includes current utilisation for the FR-034 warning |
+| GET | `/v1/admin/pools/{id}` | includes current utilisation for the FR-034 warning; same mixed camelCase/snake_case shape as the list above |
+| GET | `/v1/admin/pools/{id}/numbers` | lists the pool's individual Tracking Numbers — `[{ id, did, status, status_changed_at, last_released_at }]` |
 | POST | `/v1/admin/pools/{id}/numbers/import` | multipart CSV upload; response lists per-row accept/reject with reason (FR-002) |
 | GET | `/v1/admin/numbers/import-folder/files` | lists CSV files currently in the configured server-side import folder — `[{ file_name, size_bytes, modified_at }]` (FR-051) |
 | POST | `/v1/admin/pools/{id}/numbers/import-from-folder` | `{ "file_name": "string" }` — reads that file from the configured folder and applies the identical per-row accept/reject logic as `/numbers/import`; 400 if `file_name` is not a bare name resolving inside the folder (FR-051) |
 | POST | `/v1/admin/numbers/{id}/suspend` \| `/retire` \| `/reactivate` | does not touch an in-progress Allocation (FR-005) |
 | POST | `/v1/admin/numbers/{id}/move` | `{ "target_pool_id": "string" }` — rejects if number not currently active-and-unheld in a way that would violate exactly-one-pool (FR-004) |
+
+## Websites (FR-004, FR-049, FR-050)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/v1/admin/websites` | lists every website — includes `shadowModeEnabled`/`multiPoolEnabled` (camelCase, ad-hoc response shape) alongside its other configuration. There is no create endpoint yet: a Website is currently provisioned directly against the database, not through this API. |
+| POST | `/v1/admin/websites/{id}/shadow-mode/enable` \| `/disable` | FR-049 parallel-run toggle, audited |
+| POST | `/v1/admin/websites/{id}/multi-pool/enable` \| `/disable` | FR-050 multi-pool DNI toggle, audited |
 
 ## Qualification rules (FR-022–FR-024, FR-033)
 

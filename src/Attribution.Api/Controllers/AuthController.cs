@@ -1,6 +1,7 @@
 using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Attribution.Infrastructure.Identity;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -10,6 +11,7 @@ namespace Attribution.Api.Controllers;
 // yet is exactly who needs to reach them, and the credentials (or refresh token) themselves
 // are the authentication.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/auth")]
 public sealed class AuthController : ControllerBase
 {

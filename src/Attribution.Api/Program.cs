@@ -87,6 +87,18 @@ builder.Services.AddCors(options =>
         .SetIsOriginAllowed(_ => true)
         .AllowAnyHeader()
         .WithMethods("POST", "OPTIONS"));
+
+    // The separate admin+reporting UI (attribution-ui) is a genuinely different origin in
+    // any real deployment (its own host/port), unlike the DNI script above which runs
+    // embedded on an arbitrary customer site. Unlike that endpoint, every request here
+    // already carries an Authorization header and is authenticated/RBAC-checked server-side
+    // (FR-037, FR-038), so the CORS policy's job is only to name which UI origins may reach
+    // it at all, not to substitute for that authorization.
+    var adminUiOrigins = builder.Configuration.GetSection("Cors:AdminUiOrigins").Get<string[]>() ?? [];
+    options.AddPolicy("AdminUi", policy => policy
+        .WithOrigins(adminUiOrigins)
+        .AllowAnyHeader()
+        .WithMethods("GET", "POST", "DELETE", "OPTIONS"));
 });
 
 // --- Data access (T011-T013) ---

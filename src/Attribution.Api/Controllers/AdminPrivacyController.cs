@@ -2,6 +2,7 @@ using Attribution.Api.Middleware;
 using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -13,6 +14,7 @@ namespace Attribution.Api.Controllers;
 // which trivially satisfies the 30-day bar rather than requiring a queued request/status
 // workflow the spec never actually asks for.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/privacy")]
 [Authorize]
 public sealed class AdminPrivacyController : ControllerBase

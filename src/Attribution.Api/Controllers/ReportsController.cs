@@ -3,6 +3,7 @@ using Attribution.Api.Middleware;
 using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -12,6 +13,7 @@ namespace Attribution.Api.Controllers;
 // (FR-031) — Analyst and Marketing Administrator both hold ViewReports/ExportReports,
 // Integration Service holds neither (FR-038), matching contracts/reporting-api.md exactly.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/reports")]
 [Authorize]
 public sealed class ReportsController : ControllerBase

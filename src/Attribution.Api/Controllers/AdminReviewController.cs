@@ -4,12 +4,14 @@ using Attribution.Application.Attribution;
 using Attribution.Domain.Audit;
 using Attribution.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
 
 // contracts/admin-api.md §Manual review. FR-036.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/review-cases")]
 [Authorize]
 public sealed class AdminReviewController : ControllerBase

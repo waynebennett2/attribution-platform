@@ -3,6 +3,7 @@ using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Attribution.Domain.Websites;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -10,6 +11,7 @@ namespace Attribution.Api.Controllers;
 // FR-049: per-website shadow-mode toggle, switchable through configuration without code
 // change, per contracts/admin-api.md.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/websites")]
 [Authorize]
 public sealed class AdminWebsitesController : ControllerBase
@@ -21,6 +23,32 @@ public sealed class AdminWebsitesController : ControllerBase
     {
         _websiteRepository = websiteRepository;
         _auditLogger = auditLogger;
+    }
+
+    // Lists every website — there is no other browsing surface for websites, and a
+    // website can only be created directly against the database today (no admin endpoint
+    // exists for that yet), so this is at minimum what an admin UI needs to see what's there.
+    [HttpGet]
+    [RequireOperation(Operation.ManagePools)]
+    public async Task<IActionResult> List()
+    {
+        var websites = await _websiteRepository.GetAllAsync();
+        return Ok(websites.Select(w => new
+        {
+            id = w.Id,
+            w.Name,
+            w.PermittedOrigins,
+            w.DefaultNumber,
+            w.SessionTimeoutSeconds,
+            w.HeartbeatIntervalSeconds,
+            w.AllocationWindowExtensionSeconds,
+            w.CooldownSeconds,
+            w.ConsentRequired,
+            w.ShadowModeEnabled,
+            w.MultiPoolEnabled,
+            w.BusinessUnit,
+            w.LocalTimezone,
+        }));
     }
 
     [HttpPost("{id:guid}/shadow-mode/enable")]

@@ -3,6 +3,7 @@ using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Attribution.Domain.Publication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -12,6 +13,7 @@ namespace Attribution.Api.Controllers;
 // administrator sees here can never disagree with what triggered (or didn't trigger) an
 // alert — one source of truth for "is this healthy", not two independently-derived views.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/health")]
 [Authorize]
 public sealed class AdminHealthController : ControllerBase

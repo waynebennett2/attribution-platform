@@ -4,6 +4,7 @@ using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Attribution.Domain.Pools;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
@@ -11,6 +12,7 @@ namespace Attribution.Api.Controllers;
 // contracts/admin-api.md §Number pools & numbers. FR-004, FR-005: lifecycle transitions
 // never touch a session's in-progress allocation — only future eligibility.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/numbers")]
 [Authorize]
 public sealed class AdminNumbersController : ControllerBase

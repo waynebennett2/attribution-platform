@@ -6,12 +6,14 @@ using Attribution.Domain.Calls;
 using Attribution.Domain.Identity;
 using Attribution.Domain.Qualification;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Attribution.Api.Controllers;
 
 // contracts/admin-api.md §Qualification rules. FR-022-FR-024, FR-033.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/qualification-rules")]
 [Authorize]
 public sealed class AdminQualificationRulesController : ControllerBase

@@ -3,6 +3,7 @@ using Attribution.Application.Administration;
 using Attribution.Domain.Identity;
 using Attribution.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using DomainUser = Attribution.Domain.Identity.User;
 
@@ -11,6 +12,7 @@ namespace Attribution.Api.Controllers;
 // contracts/admin-api.md §Users & roles. FR-032, FR-046: local username/password + TOTP
 // accounts are the platform's only interactive users, created and deactivated here.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/users")]
 [Authorize]
 public sealed class AdminUsersController : ControllerBase

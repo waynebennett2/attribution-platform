@@ -24,6 +24,13 @@ public sealed class NumberPoolRepository : RepositoryBase, INumberPoolRepository
         return rows.Select(r => r.ToDomain()).ToList();
     }
 
+    public async Task<IReadOnlyList<NumberPool>> GetAllAsync()
+    {
+        using var connection = OpenConnection();
+        var rows = await connection.QueryAsync<PoolRow>("SELECT * FROM number_pools ORDER BY name");
+        return rows.Select(r => r.ToDomain()).ToList();
+    }
+
     public async Task AddAsync(NumberPool pool)
     {
         using var connection = OpenConnection();

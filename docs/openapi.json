@@ -271,9 +271,42 @@
             "description": "OK"
           }
         }
+      },
+      "get": {
+        "tags": [
+          "AdminPools"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/v1/admin/pools/{id}": {
+      "get": {
+        "tags": [
+          "AdminPools"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/admin/pools/{id}/numbers": {
       "get": {
         "tags": [
           "AdminPools"
@@ -656,6 +689,18 @@
         }
       }
     },
+    "/v1/admin/websites": {
+      "get": {
+        "tags": [
+          "AdminWebsites"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v1/admin/websites/{id}/shadow-mode/enable": {
       "post": {
         "tags": [
@@ -680,6 +725,52 @@
       }
     },
     "/v1/admin/websites/{id}/shadow-mode/disable": {
+      "post": {
+        "tags": [
+          "AdminWebsites"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/admin/websites/{id}/multi-pool/enable": {
+      "post": {
+        "tags": [
+          "AdminWebsites"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/admin/websites/{id}/multi-pool/disable": {
       "post": {
         "tags": [
           "AdminWebsites"
@@ -1402,6 +1493,17 @@
           "ga4_client_id": {
             "type": "string",
             "nullable": true
+          },
+          "matched_pool_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "session_id": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1424,6 +1526,20 @@
           },
           "reason": {
             "type": "string",
+            "nullable": true
+          },
+          "pools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoolNumberDto"
+            },
+            "nullable": true
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoolAllocationDto"
+            },
             "nullable": true
           }
         },
@@ -1534,6 +1650,13 @@
           "number": {
             "type": "string",
             "nullable": true
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoolHeartbeatDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1552,6 +1675,55 @@
         "type": "object",
         "properties": {
           "target_pool_id": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PoolAllocationDto": {
+        "type": "object",
+        "properties": {
+          "pool_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PoolHeartbeatDto": {
+        "type": "object",
+        "properties": {
+          "pool_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "still_valid": {
+            "type": "boolean"
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PoolNumberDto": {
+        "type": "object",
+        "properties": {
+          "pool_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "default_number": {
             "type": "string",
             "nullable": true
           }

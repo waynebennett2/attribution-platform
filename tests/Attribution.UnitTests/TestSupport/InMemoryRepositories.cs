@@ -118,6 +118,8 @@ internal sealed class FakeNumberPoolRepository : INumberPoolRepository
     public Task<IReadOnlyList<NumberPool>> GetByScopeAsync(string scopeType, Guid scopeRef) =>
         Task.FromResult<IReadOnlyList<NumberPool>>(Pools.Where(p => p.ScopeType == scopeType && p.ScopeRef == scopeRef).ToList());
 
+    public Task<IReadOnlyList<NumberPool>> GetAllAsync() => Task.FromResult<IReadOnlyList<NumberPool>>(Pools.ToList());
+
     public Task AddAsync(NumberPool pool)
     {
         Pools.Add(pool);
@@ -251,6 +253,8 @@ internal sealed class FakeWebsiteRepository : IWebsiteRepository
 
     public Task<Website?> GetByOriginAsync(string origin) =>
         Task.FromResult(Websites.FirstOrDefault(w => w.PermittedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)));
+
+    public Task<IReadOnlyList<Website>> GetAllAsync() => Task.FromResult<IReadOnlyList<Website>>(Websites.ToList());
 
     public Task AddAsync(Website website)
     {

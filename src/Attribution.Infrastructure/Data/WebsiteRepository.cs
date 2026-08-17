@@ -25,6 +25,13 @@ public sealed class WebsiteRepository : RepositoryBase, IWebsiteRepository
             .FirstOrDefault(w => w.PermittedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase));
     }
 
+    public async Task<IReadOnlyList<Website>> GetAllAsync()
+    {
+        using var connection = OpenConnection();
+        var rows = await connection.QueryAsync<WebsiteRow>("SELECT * FROM websites ORDER BY name");
+        return rows.Select(r => r.ToDomain()).ToList();
+    }
+
     public async Task AddAsync(Website website)
     {
         using var connection = OpenConnection();

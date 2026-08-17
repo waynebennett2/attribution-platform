@@ -5,6 +5,7 @@ using Attribution.Domain.Identity;
 using Attribution.Domain.Pools;
 using Attribution.Domain.Websites;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -12,6 +13,7 @@ namespace Attribution.Api.Controllers;
 
 // contracts/admin-api.md §Number pools & numbers. FR-001, FR-002, FR-004, FR-005, FR-050, FR-051.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin")]
 [Authorize]
 public sealed class AdminPoolsController : ControllerBase
@@ -73,6 +75,17 @@ public sealed class AdminPoolsController : ControllerBase
 
     private static string DigitsOnly(string value) => new(value.Where(char.IsDigit).ToArray());
 
+    // Lists every pool across every scope — there is no per-scope browsing surface
+    // elsewhere, so an admin UI needs this to show anything before knowing a specific id.
+    [HttpGet("pools")]
+    [RequireOperation(Operation.ManagePools)]
+    public async Task<IActionResult> ListPools()
+    {
+        var pools = await _poolRepository.GetAllAsync();
+        var summaries = await Task.WhenAll(pools.Select(ToPoolSummaryAsync));
+        return Ok(summaries);
+    }
+
     [HttpGet("pools/{id:guid}")]
     [RequireOperation(Operation.ManagePools)]
     public async Task<IActionResult> GetPool(Guid id)
@@ -83,12 +96,40 @@ public sealed class AdminPoolsController : ControllerBase
             return NotFound();
         }
 
+        return Ok(await ToPoolSummaryAsync(pool));
+    }
+
+    // Lists a pool's individual tracking numbers — GetPool only ever returned an
+    // aggregate count/utilisation, with no way to see (or act on) the numbers themselves.
+    [HttpGet("pools/{id:guid}/numbers")]
+    [RequireOperation(Operation.ManagePools)]
+    public async Task<IActionResult> ListPoolNumbers(Guid id)
+    {
+        var pool = await _poolRepository.GetByIdAsync(id);
+        if (pool is null)
+        {
+            return NotFound();
+        }
+
         var numbers = await _trackingNumberRepository.GetByPoolAsync(id);
+        return Ok(numbers.Select(n => new
+        {
+            id = n.Id,
+            did = n.Did,
+            status = n.Status.ToString(),
+            status_changed_at = n.StatusChangedAt,
+            last_released_at = n.LastReleasedAt,
+        }));
+    }
+
+    private async Task<object> ToPoolSummaryAsync(NumberPool pool)
+    {
+        var numbers = await _trackingNumberRepository.GetByPoolAsync(pool.Id);
         var utilisation = numbers.Count == 0
             ? 0
             : numbers.Count(n => n.Status == TrackingNumberStatus.Active) / (double)numbers.Count;
 
-        return Ok(new
+        return new
         {
             id = pool.Id,
             pool.Name,
@@ -97,7 +138,7 @@ public sealed class AdminPoolsController : ControllerBase
             pool.DefaultNumber,
             number_count = numbers.Count,
             utilisation,
-        });
+        };
     }
 
     // FR-002: CSV bulk import via browser upload. Expects one DID per line (optionally

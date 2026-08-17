@@ -4,6 +4,7 @@ using Attribution.Domain.Audit;
 using Attribution.Domain.Identity;
 using Attribution.Infrastructure.Alerting;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -11,6 +12,7 @@ namespace Attribution.Api.Controllers;
 
 // contracts/admin-api.md §Alerts. FR-047.
 [ApiController]
+[EnableCors("AdminUi")]
 [Route("v1/admin/alerts")]
 [Authorize]
 public sealed class AdminAlertsController : ControllerBase
