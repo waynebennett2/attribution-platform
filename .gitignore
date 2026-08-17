@@ -51,3 +51,7 @@ logs/
 
 # Local project management tracking (not part of the codebase)
 project-status.xlsx
+
+# Local dev drop folder for FR-051's server-side CSV import — operator-provisioned per
+# deployment (spec.md Assumptions), never repo content
+src/Attribution.Api/import/

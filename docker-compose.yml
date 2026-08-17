@@ -1,19 +1,25 @@
 services:
+  # Demo/local-compose convenience by default (hardcoded MYSQL_DATABASE/MYSQL_USER, a
+  # named Docker volume for storage). For a real deployment prefer either a managed MySQL
+  # 8.0+ instance (point ConnectionStrings__AttributionDb at it directly and remove this
+  # service entirely) or, if running MySQL in this compose file too, set real
+  # MYSQL_ROOT_PASSWORD/MYSQL_PASSWORD values in .env — see .env.example.
   mysql:
     image: mysql:8.0
     container_name: attribution-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: attribution_dev_root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env — see .env.example}
       MYSQL_DATABASE: attribution
       MYSQL_USER: attribution
-      MYSQL_PASSWORD: attribution_dev
-    ports:
-      - "3306:3306"
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env — see .env.example}
+    # No host port published — MySQL is reachable from api1/api2/worker1/worker2 over the
+    # compose network by service name only. For ad-hoc admin access use
+    # `docker compose exec mysql mysql -u root -p` rather than exposing 3306 publicly.
     volumes:
       - attribution-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pattribution_dev_root"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -38,16 +44,26 @@ services:
       # explicit step before starting any instance (see Program.cs's own comment on
       # Migrations:RunOnStartup), not on every replica's boot.
       Migrations__RunOnStartup: "true"
-      ConnectionStrings__AttributionDb: "Server=mysql;Port=3306;Database=attribution;User=attribution;Password=attribution_dev;"
+      ConnectionStrings__AttributionDb: "Server=mysql;Port=3306;Database=attribution;User=attribution;Password=${MYSQL_PASSWORD};"
       Jwt__SigningSecret: ${JWT_SIGNING_SECRET:?Set JWT_SIGNING_SECRET in .env — see .env.example}
       Jwt__Issuer: attribution-platform
       Jwt__Audience: attribution-platform-api
       Retention__HmacKey: ${RETENTION_HMAC_KEY:?Set RETENTION_HMAC_KEY in .env — see .env.example}
+      # FR-051: an operator drops 8x8-exported CSVs into ./data/number-imports on the host
+      # (bind-mounted below) for either replica to read when an admin triggers the import.
+      NumberImport__FolderPath: /data/number-imports
+      # The attribution-ui origin (e.g. https://admin.example.com) — without this, every
+      # request the UI makes is rejected by CORS before it even reaches RBAC.
+      Cors__AdminUiOrigins__0: ${ADMIN_UI_ORIGIN:?Set ADMIN_UI_ORIGIN in .env — see .env.example}
+    volumes:
+      - ./data/number-imports:/data/number-imports
 
   api2:
     <<: *api
     environment:
       <<: *api-environment
+    volumes:
+      - ./data/number-imports:/data/number-imports
 
   nginx:
     image: nginx:1.27-alpine
@@ -70,7 +86,7 @@ services:
         condition: service_healthy
     environment: &worker-environment
       DOTNET_ENVIRONMENT: Production
-      ConnectionStrings__AttributionDb: "Server=mysql;Port=3306;Database=attribution;User=attribution;Password=attribution_dev;"
+      ConnectionStrings__AttributionDb: "Server=mysql;Port=3306;Database=attribution;User=attribution;Password=${MYSQL_PASSWORD};"
       Retention__HmacKey: ${RETENTION_HMAC_KEY:?Set RETENTION_HMAC_KEY in .env — see .env.example}
 
   # Two replicas for redundancy (one can be stopped/restarted without an outage), not for

@@ -1,0 +1,42 @@
+{
+  "_comment": "Copy this file to appsettings.Production.local.json (gitignored) on the server, next to appsettings.json, before running `docker compose build` — the Dockerfile copies the whole src/ directory into the image, so this file must exist in the checkout at build time. It is loaded last, so every value here overrides the checked-in defaults. Without Analytics8x8 filled in, ingestion never starts pulling calls at all; without Smtp/Alerting, alert conditions are still detected but never actually notify anyone.",
+
+  "Analytics8x8": {
+    "BaseUrl": "<Analytics for 8x8 Work API base URL>",
+    "TokenUrl": "<Analytics for 8x8 Work OAuth2 token URL>",
+    "ClientId": "<client id>",
+    "ClientSecret": "<client secret>"
+  },
+
+  "GoogleAds": {
+    "ClientId": "<OAuth2 client id from Google Ads API access>",
+    "ClientSecret": "<OAuth2 client secret>",
+    "RefreshToken": "<one-time OAuth2 refresh token, obtained via Google's consent flow outside this app>",
+    "DeveloperToken": "<Google Ads developer token>",
+    "CustomerId": "<the Google Ads customer id conversions are uploaded to, digits only>",
+    "LoginCustomerId": "<only needed if CustomerId is a client account under an MCC/manager account>"
+  },
+
+  "Ga4": {
+    "MeasurementId": "<GA4 Measurement ID, e.g. G-XXXXXXXXXX>",
+    "ApiSecret": "<GA4 Measurement Protocol API secret, created in GA4 admin>"
+  },
+
+  "Smtp": {
+    "Host": "<mail relay hostname>",
+    "Port": 587,
+    "EnableSsl": true,
+    "Username": "<mail relay username, if it requires auth>",
+    "Password": "<mail relay password, if it requires auth>",
+    "FromAddress": "alerts@your-domain.example"
+  },
+
+  "Alerting": {
+    "Notifications": {
+      "Default": {
+        "EmailRecipients": ["ops@your-domain.example"],
+        "WebhookUrl": null
+      }
+    }
+  }
+}

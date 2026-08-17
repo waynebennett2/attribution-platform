@@ -31,6 +31,12 @@ DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// A no-op everywhere except when actually started by the Windows Service Control Manager
+// (e.g. `sc.exe start "Attribution Api"` on a Windows Server deployment with no Docker) —
+// picks the right lifetime/logging so `net stop`/`net start` and Windows' own crash
+// recovery work correctly. Harmless for `dotnet run`, IIS, Linux/systemd, or a container.
+builder.Services.AddWindowsService(options => options.ServiceName = "Attribution Api");
+
 // Gitignored per-developer overrides (real DB credentials, etc.) — never committed.
 // Loaded last so it takes precedence over appsettings.{Environment}.json; see
 // appsettings.Development.local.json.example for the expected shape.
@@ -209,16 +215,40 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// `dotnet Attribution.Api.dll migrate` applies pending migrations then exits, without
+// starting Kestrel — the "explicit step" the comment below refers to, run once before the
+// very first start and again before each upgrade that ships a new migration. FluentMigrator
+// tracks applied versions itself, so re-running it against an already-current schema is a
+// safe no-op.
+if (args.Length > 0 && args[0] == "migrate")
+{
+    MigrationRunner.ApplyMigrations(connectionString);
+    Console.WriteLine("Migrations applied.");
+    return 0;
+}
+
 // Convenience for local/dev use (and anyone testing this build without a separate
 // deploy-time migration step): apply pending migrations on startup. FluentMigrator
 // tracks applied versions itself, so this is a safe no-op on an already-current schema.
 // Off by default outside Development — a real deployment should run migrations as an
-// explicit step, not implicitly on every instance's startup.
+// explicit step (`migrate`, above), not implicitly on every instance's startup.
 var runMigrationsOnStartup = builder.Configuration.GetValue(
     "Migrations:RunOnStartup", defaultValue: app.Environment.IsDevelopment());
 if (runMigrationsOnStartup)
 {
     MigrationRunner.ApplyMigrations(connectionString);
+}
+
+// FR-046: there is no self-registration, so a brand-new deployment has no way to sign in
+// at all until one System Administrator account exists. `dotnet Attribution.Api.dll
+// seed-admin <username> <password>` provisions exactly one, using the same DI-registered
+// IUserRepository/LocalAuthenticator every other admin-account creation path uses (not a
+// separate ad-hoc script), then exits without starting the Kestrel listener. Safe to run
+// again later for a second account (e.g. a break-in-case-of-lockout spare) — it only
+// refuses a username already in use.
+if (args.Length > 0 && args[0] == "seed-admin")
+{
+    return SeedAdminAsync(app.Services, args).GetAwaiter().GetResult();
 }
 
 // Configure the HTTP request pipeline.
@@ -253,6 +283,44 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
+return 0;
+
+// FR-046: provisions one System Administrator local account directly against
+// IUserRepository/LocalAuthenticator — the same path CreateBreakGlassUserRequest.../
+// AdminUsersController.Create uses, just reachable before any account exists to sign in
+// and call that endpoint. Prints the TOTP provisioning URI once, exactly like the HTTP
+// endpoint does, since there is nowhere else it is ever shown again.
+static async Task<int> SeedAdminAsync(IServiceProvider services, string[] args)
+{
+    if (args.Length < 3)
+    {
+        Console.Error.WriteLine("Usage: dotnet Attribution.Api.dll seed-admin <username> <password>");
+        return 1;
+    }
+
+    var username = args[1];
+    var password = args[2];
+
+    using var scope = services.CreateScope();
+    var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+    var authenticator = scope.ServiceProvider.GetRequiredService<LocalAuthenticator>();
+
+    if (await userRepository.GetByUsernameAsync(username) is not null)
+    {
+        Console.Error.WriteLine($"Username '{username}' is already in use.");
+        return 1;
+    }
+
+    var totpSecret = LocalAuthenticator.GenerateTotpSecret();
+    var user = User.CreateLocal(username, Role.SystemAdministrator, authenticator.HashPassword(password), totpSecret);
+    await userRepository.AddAsync(user);
+
+    var otpAuthUri = $"otpauth://totp/AttributionPlatform:{Uri.EscapeDataString(username)}?secret={totpSecret}&issuer=AttributionPlatform";
+    Console.WriteLine($"Created System Administrator '{username}'.");
+    Console.WriteLine("Add this to an authenticator app now — it is never shown again:");
+    Console.WriteLine(otpAuthUri);
+    return 0;
+}
 
 // Exposed for WebApplicationFactory-based integration/contract tests.
 public partial class Program { }

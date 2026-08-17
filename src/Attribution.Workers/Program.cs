@@ -28,6 +28,12 @@ DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// A no-op everywhere except when actually started by the Windows Service Control Manager
+// (e.g. `sc.exe start "Attribution Workers"` on a Windows Server deployment with no
+// Docker) — picks the right lifetime/logging so `net stop`/`net start` and Windows' own
+// crash recovery work correctly. Harmless for `dotnet run`, Linux/systemd, or a container.
+builder.Services.AddWindowsService(options => options.ServiceName = "Attribution Workers");
+
 // Gitignored per-developer overrides (real DB credentials, etc.) — never committed.
 // Loaded last so it takes precedence over appsettings.{Environment}.json; see
 // appsettings.Development.local.json.example for the expected shape.

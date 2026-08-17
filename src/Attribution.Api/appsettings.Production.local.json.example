@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy this file to appsettings.Production.local.json (gitignored) on the server, next to appsettings.json, before running `docker compose build` — the Dockerfile copies the whole src/ directory into the image, so this file must exist in the checkout at build time. It is loaded last, after appsettings.json and appsettings.Production.json (which doesn't exist), so every value here overrides the checked-in defaults. Everything here is optional in the sense that the app starts without it — but Google Ads offline conversions won't publish without GoogleAds filled in.",
+
+  "GoogleAds": {
+    "ClientId": "<OAuth2 client id from Google Ads API access>",
+    "ClientSecret": "<OAuth2 client secret>",
+    "RefreshToken": "<one-time OAuth2 refresh token, obtained via Google's consent flow outside this app>",
+    "DeveloperToken": "<Google Ads developer token>",
+    "CustomerId": "<the Google Ads customer id conversions are uploaded to, digits only>",
+    "LoginCustomerId": "<only needed if CustomerId is a client account under an MCC/manager account>"
+  }
+}
