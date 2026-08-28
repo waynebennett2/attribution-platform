@@ -7,8 +7,10 @@ demo exercises the actual production script rather than a mock of it.
 
 - `index.html` — landing page: logo, company description, postcode search.
 - `care-homes.html` — always shows the same three mock care homes, regardless of postcode.
-- `assets/attribution.js` — wires `window.__attributionConfig`, the cookie-consent banner,
-  and a small settings panel for pointing the demo at your API once it's deployed.
+  Each has its own number pool (FR-050 multi-pool DNI), so each gets its own independently
+  allocated tracking number.
+- `assets/attribution.js` — wires `window.__attributionConfig` and a small settings panel for
+  pointing the demo at your API once it's deployed.
 - `assets/search.js` — page 1's postcode form (light format validation only; no real lookup).
 
 ## Running it
@@ -40,37 +42,30 @@ Once the API is deployed, either:
 It defaults to `http://localhost:8080` (the nginx port in the repo's `docker-compose.yml`).
 
 Before any of this works, run `scripts/seed-dev-data.sql` against the target database — it
-creates the Website row (`00000000-0000-0000-0000-000000000001`), its number pool, and the
-default qualification rule the demo relies on.
+creates the Website row (`00000000-0000-0000-0000-000000000001`) with `multi_pool_enabled=1`,
+its three number pools (one per care home), and the default qualification rule the demo
+relies on.
 
-## Known limitation: one shared tracking number, not three
+## Independent per-care-home numbers
 
-`mock/Mock website.md` describes each of the three care homes showing its own distinct
-phone number that gets swapped independently. The platform can't do that today: the seed
-data creates exactly **one** Website with **one** number pool, and the DNI client
-(`sessionStore.js`) keys its session in `localStorage` purely by `websiteId` — running three
-independent `initAttribution()` instances against the same `websiteId` would collide (last
-write wins, heartbeats stomping each other), and the client's `apply()` always rewrites
-every matched number on the page to the *one* number it was just given.
+`mock/Mock website.md` describes each of the three care homes showing its own distinct phone
+number that gets swapped independently. This works via FR-050 multi-pool DNI: the seeded
+Website has three number pools, each with its own `default_number` (`01632 960010/11/12`,
+one per card on `care-homes.html`). The DNI client (`client/dni-script/src/index.js`) matches
+each pool's `default_number` against the page locally and requests an allocation per pool it
+finds, so each care home's number is replaced independently rather than the whole page
+swapping to one shared number.
 
-So this mock instead shows the same default number (`01632 960000`, matching the seeded
-Website's `default_number`) on all three cards, and after consent is granted, all three
-cards swap **together** to the same allocated tracking number. That's an accurate demo of
-what the platform currently does (a page-wide dynamic number swap), just not independent
-per-listing attribution. Giving each care home its own tracking number would need three
-separate Website/number-pool rows in the DB (i.e. modeling each care home as its own
-"website" in the platform's data model) plus either three scoped script instances or an
-extension to the DNI client to support multiple concurrent numbers on one page — both are
-backend/script changes outside the scope of this static mock.
+Each card's phone number is plain text/`tel:` link only — no `data-attribution-number`
+marker attribute. That marker is a page-wide "replace this element regardless of its current
+number" mechanism (see `replace.js`), which isn't scoped per pool; using it here would let
+whichever pool's replacer runs last overwrite all three cards.
 
-## Consent banner
+## Consent
 
-The bottom banner is a stand-in cookie/consent prompt. Accept/Decline call the same
-`window.__attributionConsent` + `attribution:consent-change` event contract the real script
-expects (see `client/dni-script/src/consent.js`), matching how
-`client/dni-script/tests/fixtures/demo.html` drives it for manual testing. The choice is
-remembered in `localStorage` (`mm-demo:consent`) and can be reopened via "Manage cookie
-preferences" in the footer.
+This mock has no cookie/consent banner. `assets/attribution.js` sets
+`window.__attributionConsent = { granted: true }` before the DNI client runs, so tracking
+numbers are injected onto the page immediately on load, with no visitor action required.
 
 ## Debug status panel
 

@@ -331,58 +331,6 @@ body {
   text-align: center;
 }
 
-.site-footer button.link-btn {
-  background: none;
-  border: none;
-  color: #b9c2cb;
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-}
-
-/* ---- Cookie / consent banner ---- */
-
-.consent-banner {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--navy-deep);
-  color: var(--cream);
-  border-top: 3px solid var(--gold);
-  padding: 1rem 1.25rem;
-  z-index: 1000;
-  display: none;
-}
-
-.consent-banner.visible {
-  display: block;
-}
-
-.consent-banner .consent-inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-}
-
-.consent-banner p {
-  margin: 0;
-  flex: 1 1 420px;
-  font-family: "Helvetica Neue", Arial, sans-serif;
-  font-size: 0.85rem;
-  color: #d7dde2;
-}
-
-.consent-banner .consent-actions {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
 /* ---- Settings / debug panel ---- */
 
 details.settings {
