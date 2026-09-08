@@ -46,13 +46,24 @@ not a correction of an earlier error; see Coverage Notes for further detail.
   queries already use.
 - All IDs are `CHAR(36)` text (GUIDs); every `<...>` placeholder that is a GUID is passed
   as its string form.
-- Role names match `Attribution.Domain.Identity.Role`: `SystemAdministrator`,
+- Role names originally matched `Attribution.Domain.Identity.Role`: `SystemAdministrator`,
   `MarketingAdministrator`, `Analyst`, `IntegrationService`. Per `RbacPolicy.cs`:
   `ManageUsers`, `ManagePools`, `ManageNumbers`, `ManagePrivacy` are System Administrator
   only; `ManageRules`, `ViewReports`, `ExportReports`, `ManualReview`,
   `ViewIntegrationHealth`, `AcknowledgeAlerts`, `ViewAuditLog` are granted to both System
   Administrator and Marketing Administrator; `ViewReports`/`ExportReports` are additionally
   granted to Analyst; Integration Service holds no interactive operation at all (FR-038).
+  **2026-09-08 addition**: `attribution-ui` (the consumer of this document) now also
+  recognizes a fifth role, `AdminReports` — System Administrator's full permission set
+  plus `ViewReports`/`ExportReports` — for an admin user who also needs report access,
+  requested and implemented directly against `attribution-ui`. `sp_create_user`/
+  `sp_override_user_role` below accept it. This is currently a role known to
+  `attribution-ui`'s own RBAC mirror and this document's stored procedures; it has not
+  been propagated to `spec.md` FR-032/Key Entities or `data-model.md`'s User/Role
+  section, nor does a `role_admin_reports` MySQL role/grant script exist yet under this
+  repo's own `db/access-roles/` (only in `attribution-ui/server/README.md`'s example) —
+  flagged here rather than silently left inconsistent, since closing that gap is a
+  spec-level change this document alone shouldn't make unasked.
 
 ---
 
@@ -1425,8 +1436,8 @@ CREATE PROCEDURE sp_create_user(IN p_username VARCHAR(255), IN p_role VARCHAR(32
 BEGIN
     DECLARE v_id CHAR(36) DEFAULT UUID();
     DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
-    IF p_role NOT IN ('SystemAdministrator', 'MarketingAdministrator', 'Analyst', 'IntegrationService') THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'role must be one of: SystemAdministrator, MarketingAdministrator, Analyst, IntegrationService.';
+    IF p_role NOT IN ('SystemAdministrator', 'AdminReports', 'MarketingAdministrator', 'Analyst', 'IntegrationService') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'role must be one of: SystemAdministrator, AdminReports, MarketingAdministrator, Analyst, IntegrationService.';
     END IF;
     IF EXISTS (SELECT 1 FROM users WHERE username = p_username) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Username is already in use.';
@@ -1504,8 +1515,8 @@ BEGIN
     DECLARE v_db_username VARCHAR(255);
     DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
 
-    IF p_new_role NOT IN ('SystemAdministrator', 'MarketingAdministrator', 'Analyst', 'IntegrationService') THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'role must be one of: SystemAdministrator, MarketingAdministrator, Analyst, IntegrationService.';
+    IF p_new_role NOT IN ('SystemAdministrator', 'AdminReports', 'MarketingAdministrator', 'Analyst', 'IntegrationService') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'role must be one of: SystemAdministrator, AdminReports, MarketingAdministrator, Analyst, IntegrationService.';
     END IF;
 
     SELECT COALESCE(role_override, mapped_role), db_username INTO v_previous_role, v_db_username FROM users WHERE id = p_id;
