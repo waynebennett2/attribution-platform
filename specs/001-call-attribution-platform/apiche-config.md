@@ -1246,6 +1246,7 @@ BEGIN
     DECLARE v_new_digits VARCHAR(32);
     DECLARE v_id CHAR(36) DEFAULT UUID();
     DECLARE v_now DATETIME(6) DEFAULT UTC_TIMESTAMP(6);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
 
     IF p_scope_type NOT IN ('website', 'campaign', 'business_unit') THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Scope type must be website, campaign or business_unit (FR-004).';
@@ -1271,7 +1272,7 @@ BEGIN
     VALUES (v_id, p_name, p_scope_type, p_scope_ref, NULLIF(p_default_number, ''), v_now, v_now);
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), 'unknown', 'CreatePool', 'NumberPool', v_id, NULL,
+    VALUES (UUID(), v_actor, 'CreatePool', 'NumberPool', v_id, NULL,
         JSON_OBJECT('Id', v_id, 'Name', p_name, 'ScopeType', p_scope_type, 'ScopeRef', p_scope_ref, 'DefaultNumber', p_default_number),
         v_now);
 
@@ -1323,7 +1324,7 @@ BEGIN
     SELECT COUNT(*) INTO v_rejected FROM tmp_import_result WHERE accepted = 0;
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), 'unknown', 'ImportNumbers', 'NumberPool', p_pool_id, NULL,
+    VALUES (UUID(), SUBSTRING_INDEX(CURRENT_USER(), '@', 1), 'ImportNumbers', 'NumberPool', p_pool_id, NULL,
         JSON_OBJECT('accepted', v_accepted, 'rejected', v_rejected), v_now);
 
     SELECT row_number, did, accepted, reason FROM tmp_import_result ORDER BY row_number;
@@ -1384,10 +1385,11 @@ Replaces `AdminNumbersController.ChangeStatus` (backing Suspend/Retire/Reactivat
 CREATE PROCEDURE sp_change_tracking_number_status(IN p_id CHAR(36), IN p_new_status VARCHAR(16), IN p_action VARCHAR(32))
 BEGIN
     DECLARE v_before VARCHAR(16);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     SELECT status INTO v_before FROM tracking_numbers WHERE id = p_id;
     UPDATE tracking_numbers SET status = p_new_status, status_changed_at = UTC_TIMESTAMP(6) WHERE id = p_id;
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), 'unknown', CONCAT(p_action, 'TrackingNumber'), 'TrackingNumber', p_id,
+    VALUES (UUID(), v_actor, CONCAT(p_action, 'TrackingNumber'), 'TrackingNumber', p_id,
         JSON_OBJECT('Status', v_before), JSON_OBJECT('Status', p_new_status), UTC_TIMESTAMP(6));
 END
 ```
@@ -1402,10 +1404,11 @@ Replaces `AdminNumbersController.Move`.
 CREATE PROCEDURE sp_move_tracking_number(IN p_id CHAR(36), IN p_target_pool_id CHAR(36))
 BEGIN
     DECLARE v_before CHAR(36);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     SELECT pool_id INTO v_before FROM tracking_numbers WHERE id = p_id;
     UPDATE tracking_numbers SET pool_id = p_target_pool_id WHERE id = p_id;
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), 'unknown', 'MoveTrackingNumber', 'TrackingNumber', p_id,
+    VALUES (UUID(), v_actor, 'MoveTrackingNumber', 'TrackingNumber', p_id,
         JSON_OBJECT('PoolId', v_before), JSON_OBJECT('PoolId', p_target_pool_id), UTC_TIMESTAMP(6));
 END
 ```
@@ -1621,7 +1624,7 @@ BEGIN
     END IF;
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    SELECT UUID(), 'unknown', 'DeleteQualificationRuleVersion', 'QualificationRule', p_id,
+    SELECT UUID(), SUBSTRING_INDEX(CURRENT_USER(), '@', 1), 'DeleteQualificationRuleVersion', 'QualificationRule', p_id,
            JSON_OBJECT('id', id, 'version', version), NULL, UTC_TIMESTAMP(6)
     FROM qualification_rules WHERE id = p_id;
 
