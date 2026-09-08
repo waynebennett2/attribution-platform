@@ -1,6 +1,6 @@
 # Contract: Reporting Data API
 
-Consumed by the existing (externally-owned) reporting portal, never by the visitor-facing client. Every endpoint is role-filtered (FR-031) and has a matching CSV export (FR-030) that reproduces exactly the same rows/values/filters/period as the JSON response.
+Consumed by the existing (externally-owned) reporting portal, never by the visitor-facing client. Every request carries HTTP Basic Auth (per-user long-lived credential, research.md §20; see contracts/admin-api.md's Authentication section) and is role-filtered (FR-031); every endpoint has a matching CSV export (FR-030) that reproduces exactly the same rows/values/filters/period as the JSON response.
 
 ## Reports (FR-029)
 

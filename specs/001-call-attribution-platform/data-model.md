@@ -221,6 +221,8 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 
 ## User / Role
 
+> **Updated 2026-09-08** (plan.md "Architecture Migration" addendum; research.md §20): Basic Auth, verified fresh on every request, replaces the JWT access/refresh-token design; TOTP MFA is dropped. Fields below reflect the current, authoritative shape. `spec.md`'s FR-046 and SC-016 were formally amended to match in the 2026-09-08 `/speckit.clarify` session.
+
 | Field | Notes |
 |---|---|
 | id | |
@@ -230,13 +232,11 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 | mapped_role | the role assigned when the account was created: System Administrator \| Marketing Administrator \| Analyst \| Integration Service |
 | role_override | nullable — a System Administrator's later change to the role, audited (FR-046) |
 | role_overridden_by | nullable — who applied the change |
-| password_hash, totp_secret | set for `local` accounts only; null for `integration_service`, which never signs in interactively |
-| mfa_required | true for every `local` account (FR-046) |
-| refresh_token_hash, refresh_token_expires_at | nullable — the current rotating refresh token's hash and expiry for a signed-in `local` account (FR-046); cleared on sign-out or deactivation |
-| is_active | |
-| created_at, last_seen_at | |
+| password_hash | the account's Basic Auth password (`local` accounts) or API key (`integration_service` accounts), stored only as a salted hash (e.g. bcrypt/argon2), verified by a stored procedure that never returns it; never logged, never placed in `apiche-config.md` or any versioned file in plaintext |
+| is_active | checked fresh on every request via Basic Auth — setting this `false` removes access on the very next request, with no refresh interval to wait out |
+| created_at, last_seen_at | `last_seen_at` updated on each successful Basic Auth check, replacing the former discrete "sign-in" event |
 
-**Constraint**: `local` accounts are unlimited and are how every interactive user (System Administrator, Marketing Administrator, Analyst) signs in — there is no cap and no separate "break-glass" tier, since there is no other sign-in path for those accounts to be a fallback from. `integration_service` identity_type is barred from interactive session issuance (FR-038). At least one active `local` account with the System Administrator role MUST always exist; deactivating the last one is rejected. The one interactive sign-in surface is `POST /v1/auth/sign-in` (username, password, TOTP code), with `POST /v1/auth/refresh` (refresh token) to obtain a new access/refresh pair — see contracts/admin-api.md.
+**Constraint**: `local` accounts are unlimited and are how every interactive user (System Administrator, Marketing Administrator, Analyst) authenticates — there is no cap and no separate "break-glass" tier, since there is no other auth path for those accounts to be a fallback from. `integration_service` identity_type is barred from interactive endpoints (FR-038). At least one active `local` account with the System Administrator role MUST always exist; deactivating the last one, or changing its role away from System Administrator, is rejected (`sp_deactivate_user`/`sp_change_user_role` in `apiche-config.md` Appendix A). There is no sign-in or refresh endpoint: every `/v1/admin/*` and `/v1/reports/*` request itself carries the Basic Auth credential and is checked independently — see contracts/admin-api.md and research.md §20.
 
 ## Alert
 

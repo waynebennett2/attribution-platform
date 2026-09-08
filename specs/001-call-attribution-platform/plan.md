@@ -1,14 +1,36 @@
 # Implementation Plan: Call Attribution Platform
 
-**Branch**: `001-call-attribution-platform` | **Date**: 2026-08-10 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-call-attribution-platform` | **Date**: 2026-08-10 | **Last Amended**: 2026-09-08 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/001-call-attribution-platform/spec.md`
 
 ## Summary
 
-Replace Mediahawk with a standalone call attribution platform built on 8x8 Work: a Dynamic Number Insertion (DNI) JavaScript client that allocates a tracking number per visitor session, a backend that deterministically attributes inbound 8x8 calls to the session that displayed the dialled number using only exact DID + time-window matching (never probabilistic), a versioned qualification rule engine that decides which attributed calls are marketing conversions, and outbound publication of qualified calls to Google Ads (offline conversions) and GA4 (Measurement Protocol). The platform runs entirely independently of Mediahawk — standalone acceptance evidence (SC-001, SC-018) is the launch gate; any comparison against Mediahawk is an optional, later, report-level exercise (FR-049), never a live integration. Technical approach: a layered C#/.NET 8 REST API plus decoupled background worker services for 8x8 polling and Google Ads/GA4 publication, backed by MySQL, with Dapper for the latency- and correctness-critical write paths (atomic number allocation, idempotent CDR/Call Leg upserts) and reporting queries, and FluentMigrator for versioned schema migrations.
+Replace Mediahawk with a standalone call attribution platform built on 8x8 Work: a Dynamic Number Insertion (DNI) JavaScript client that allocates a tracking number per visitor session, a backend that deterministically attributes inbound 8x8 calls to the session that displayed the dialled number using only exact DID + time-window matching (never probabilistic), a versioned qualification rule engine that decides which attributed calls are marketing conversions, and outbound publication of qualified calls to Google Ads (offline conversions) and GA4 (Measurement Protocol). The platform runs entirely independently of Mediahawk — standalone acceptance evidence (SC-001, SC-018) is the launch gate; any comparison against Mediahawk is an optional, later, report-level exercise (FR-049), never a live integration.
 
-## Technical Context
+**Technical approach (2026-09-08, current)**: the entire backend is **Apiche**, a third-party, config-driven API gateway — every capability is one versioned REST endpoint (`/v1/...`) backed by exactly one parameterized SQL statement against MySQL, with multi-step business logic (atomic allocation, idempotent upserts, rule-contiguity validation, audit writes) pushed into MySQL stored procedures, and background/worker processing (8x8 polling, Google Ads/GA4 publication, alerting, retention) run as Apiche scheduled jobs rather than separate application logic. Authentication is HTTP Basic Auth throughout: a per-website Client ID/secret for the DNI JS client (no role), a per-user long-lived credential with a role for interactive humans, and an API key for system-to-system integration. See "Architecture Migration" immediately below for what this replaces and why.
+
+*(Original technical approach, retained as the historical/behavioral reference this migration was translated from: a layered C#/.NET 8 REST API plus decoupled background worker services for 8x8 polling and Google Ads/GA4 publication, backed by MySQL, with Dapper for the latency- and correctness-critical write paths and FluentMigrator for versioned schema migrations — see "Technical Context" below, marked superseded.)*
+
+## Architecture Migration (2026-09-08): Apiche replaces the ASP.NET Core backend
+
+> **This section is now authoritative for the backend's runtime architecture. The "Technical Context," "Testing," and "Project Structure" sections immediately below describe the original ASP.NET Core/.NET 8 design and are retained as the historical record of Phase 0/1 design and the behavioral reference the migration translates from — not as the current target.** See `research.md` §17–§21 for the full decision record and `apiche-config.md` for the endpoint-by-endpoint translation.
+
+**Summary of the change**: The hand-written ASP.NET Core Web API (`Attribution.Api`/`Application`/`Domain`/`Infrastructure`) and the standalone `Attribution.Workers` host are retired as runtime components and replaced by **Apiche**, a third-party, config-driven API gateway mandated by the constitution's Principle II and Principle VI. This corrects a standing drift: the constitution has described Apiche and Basic-Auth-only access since its first ratified version, but this feature's Phase 0/1 design and implementation built a conventional layered .NET application instead. Nothing about *what* the platform does changes — every functional requirement, success criterion, user story and entity in `spec.md` and `data-model.md` still applies unchanged — only *how* it is built.
+
+**What changes**:
+- **API surface**: every endpoint in `contracts/dni-api.md`, `contracts/admin-api.md` and `contracts/reporting-api.md` becomes an Apiche endpoint: one HTTP method + versioned path, backed by exactly one parameterized SQL statement (`<parameter_name>` placeholders 1:1 with URL query parameters for GET/DELETE or JSON body fields for POST/PUT). See `apiche-config.md`.
+- **Business logic**: any operation needing more than a single trivial SQL statement (atomic allocation, idempotent upserts, rule-contiguity validation, the zero-admin guard, audit-entry writes bundled with a state change, manual review resolution) moves into a MySQL stored procedure, invoked by the endpoint's single `CALL sp_xxx(<params>)` statement (research.md §18).
+- **Background processing**: the four worker loops (8x8 ingestion, Google Ads/GA4 publication, alerting, retention) become Apiche scheduled-job configuration entries instead of a separate hosted-service process (research.md §19).
+- **Authentication**: Basic Auth only, verified fresh on every request — a per-website Client ID/secret for the DNI JS client (no role), a per-user long-lived credential with a role attached for interactive humans (System Administrator, Marketing Administrator, Analyst), and an API key for the Integration Service role. This supersedes FR-046's TOTP MFA and JWT access/refresh design (research.md §20 — raised with and confirmed by the project owner during this planning session); `spec.md`'s FR-046 and SC-016 were formally amended to match in the 2026-09-08 `/speckit.clarify` session.
+- **Database**: unchanged — MySQL 8.0+, same schema (`data-model.md`), same `FOR UPDATE SKIP LOCKED` allocation strategy, now expressed inside a stored procedure instead of a Dapper-issued query.
+- **Unaffected**: the DNI JavaScript client (`client/dni-script`) and the externally-owned PHP/JS/CSS reporting portal are unchanged in their API/DB-consumer role (Principle III); the reporting portal's direct, read-only DB access is unaffected by the backend swap.
+
+**What this means for `/speckit-tasks`**: the existing `tasks.md` was written against the ASP.NET Core design and needs to be regenerated against this migration before implementation resumes — flagged here rather than actioned, since task generation is out of `/speckit-plan`'s scope.
+
+---
+
+## Technical Context *(superseded 2026-09-08 — see migration addendum above; retained as historical/behavioral reference)*
 
 **Language/Version**: C#, .NET 8 (LTS) — mandated by the project constitution.
 
@@ -31,6 +53,8 @@ Replace Mediahawk with a standalone call attribution platform built on 8x8 Work:
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+**Note**: the table immediately below is the original Phase 0 check against the ASP.NET Core design and is retained for history. See "Post-Apiche-migration re-check" after the FR-050 addendum for the current, authoritative check against this plan's actual target architecture.
 
 | # | Principle | Status | Rationale |
 |---|-----------|--------|-----------|
@@ -62,7 +86,24 @@ FR-050 (multi-pool Dynamic Number Insertion, added via `/speckit-clarify` after 
 
 Re-checked against the table above: still PASS on every principle. Principle I (deterministic attribution) is unaffected — FR-050 explicitly requires the identical FR-018 strict-matching rule per allocation, with no exception for a session holding more than one. Principle VIII (configuration over hardcoding) is reinforced — `multi_pool_enabled` and each pool's `default_number` are exactly the kind of admin-configurable, no-code-change data FR-004 already required. Principle VI (security by default) required one addition once actually re-checked (`/speckit-analyze`, 2026-08-17): `matched_pool_ids` is client-supplied on the unauthenticated, origin-restricted `/allocate` endpoint (FR-037), so FR-050 and contracts/dni-api.md now state explicitly that the server MUST drop any requested pool id not scoped to the request's own website before allocating from it — untrusted input on this endpoint is otherwise already handled the same way, this was simply an omission in FR-050's first draft, not a new mechanism. With that closed, PASS holds. No new Complexity Tracking entry is needed.
 
-## Project Structure
+### Post-Apiche-migration re-check (2026-09-08)
+
+Re-evaluated against `research.md` §17–§21 and `apiche-config.md`, which describe this plan's actual current target architecture (see "Architecture Migration" addendum above). This check supersedes the two above.
+
+| # | Principle | Status | Rationale |
+|---|-----------|--------|-----------|
+| I | Deterministic Attribution Only (NON-NEGOTIABLE) | PASS | The attribution stored procedure (`apiche-config.md` Appendix A) is a direct translation of the same exact-match, row-locked FR-018 logic proven in the C# reference implementation — no scoring/ranking/fuzzy-match logic is introduced by expressing it in SQL instead of C#. |
+| II | Layered Architecture | PASS — reinterpreted | Principle II's actual text names Apiche as the entire backend, not a description of the retired C# layering. That is now literally true: Apiche is the sole backend, every endpoint is one config entry plus one parameterized SQL statement, and complex logic lives in named, reviewable MySQL stored procedures rather than framework layers. |
+| III | API-First | PASS | Unchanged: every capability is exposed through versioned REST APIs (`/v1/...`); the reporting portal keeps its existing direct-DB read access (explicitly permitted), the DNI client and any future consumers remain API-only. |
+| IV | Idempotent, Auditable Operations | PASS | CDR/Call Leg upserts, publication idempotency keys, and audit-entry writes are preserved as stored-procedure logic (research.md §18) with the same natural-key/outbox-equivalent guarantees as before — the mechanism moved from C#+Dapper to SQL, the guarantee did not. |
+| V | Test-First for Business Logic (NON-NEGOTIABLE) | PASS (process gate, technology changed) | Business logic now lives in stored procedures; research.md §18 requires a SQL-level test suite per procedure, written before/alongside it, using the existing C# unit tests as the behavioral oracle during migration. |
+| VI | Security by Default | PASS | TLS everywhere; Basic Auth only, verified per request, for all three credential types (research.md §20); no roles for the DNI client; roles enforced for interactive humans and denied entirely to the Integration Service role for interactive access (FR-038). **Deviation flagged**: FR-046's TOTP MFA requirement is dropped (research.md §20) — this is a confirmed, deliberate trade-off (see Complexity Tracking below), not an oversight. |
+| VII | Observable by Design | PASS | Structured logs/metrics/health checks remain a requirement on whatever runs Apiche and its scheduled jobs; `apiche-config.md`'s worker-job section documents the same ingestion-lag/publication-failure/allocation-failure signals FR-041/FR-047 require, now sourced from SQL views/queries instead of C# instrumentation. |
+| VIII | Configuration Over Hardcoding | PASS | Reinforced, if anything: pool scoping, qualification rules, retention periods and now the entire API surface itself are Apiche configuration (endpoint definitions + SQL), not compiled code — changing an endpoint's behavior is a config change, not a deployment of new C#. |
+
+Gate remains PASS with one flagged, confirmed deviation (Principle VI / FR-046 MFA) — see Complexity Tracking.
+
+## Project Structure *(superseded 2026-09-08 for the backend — see migration addendum above; `client/dni-script` and `tests/` sections remain materially accurate)*
 
 ### Documentation (this feature)
 
@@ -127,6 +168,64 @@ tests/
 
 **Structure Decision**: Web-service option, adapted: a single ASP.NET Core solution split into the four constitution-mandated layers (`Attribution.Api` → `Attribution.Application` → `Attribution.Domain` → `Attribution.Infrastructure`) plus a separate `Attribution.Workers` host for the decoupled ingestion/publication/alerting/retention loops required by FR-016, FR-027 and FR-047, and a fully independent `client/dni-script` package for the visitor-facing insertion client — independent because it ships to customer websites, not to the API's own runtime, and is tested at the browser level rather than as a .NET project. No first-party reporting frontend exists in this repository (Delivery boundary, spec.md); the reporting portal is an external, separately-owned consumer of `Attribution.Api`.
 
+### Target Project Structure (2026-09-08, Apiche architecture)
+
+```text
+apiche/
+├── endpoints/                       # one config file (or one entry in one config) per endpoint
+│   ├── dni/                         # /v1/dni/* — allocate, heartbeat, consent, shadow-observe
+│   ├── admin/                       # /v1/admin/* — pools, numbers, websites, users, rules,
+│   │                                 #   review, alerts, audit, health, privacy
+│   └── reports/                     # /v1/reports/* — dashboard, campaigns, calls, missed,
+│                                     #   qualified, unattributed, coverage, and each's export.csv
+├── jobs/                            # scheduled worker-equivalent jobs (research.md §19)
+│   ├── ingestion-8x8.job            # CDR/Call Leg polling, FR-016
+│   ├── publish-google-ads.job       # FR-025, FR-044
+│   ├── publish-ga4.job              # FR-026
+│   ├── alerting.job                 # FR-047 threshold evaluation
+│   └── retention.job                # FR-040 purge/de-identify, FR-039 erasure
+└── auth/                            # Basic Auth credential configuration (research.md §20)
+
+db/
+├── schema/                          # versioned, hand-authored .sql migrations (research.md §13)
+└── procedures/                      # stored procedures backing multi-statement endpoints/jobs
+    ├── sp_dni_allocate.sql          # FR-003, FR-050
+    ├── sp_dni_heartbeat.sql
+    ├── sp_ingest_call.sql           # FR-017, FR-045
+    ├── sp_attribute_call.sql        # FR-018, FR-020, FR-021
+    ├── sp_qualify_call.sql          # FR-022–FR-024
+    ├── sp_publish_conversion.sql    # FR-027, FR-044
+    ├── sp_resolve_review_case.sql   # FR-036
+    ├── sp_create_qualification_rule.sql   # FR-024 contiguity validation
+    ├── sp_deactivate_user.sql       # FR-046 zero-admin guard
+    └── ...                          # full list in apiche-config.md Appendix A
+
+client/
+└── dni-script/                      # unchanged — DNI JavaScript client (FR-008–FR-011, FR-039)
+    ├── src/
+    └── tests/                       # Playwright browser-level tests, unchanged
+
+tests/
+├── Attribution.SqlTests/            # replaces Attribution.UnitTests — one suite per stored
+│                                     #   procedure, test-first per Principle V (research.md §18)
+├── Attribution.ContractTests/       # HTTP-level black-box tests against apiche-config.md's
+│                                     #   endpoints, replacing Attribution.IntegrationTests
+└── Attribution.UnitTests/           # retained read-only as the migration's behavioral oracle
+                                      #   (research.md §18) until stored-procedure parity is proven,
+                                      #   then removed
+
+specs/001-call-attribution-platform/
+├── apiche-config.md                 # NEW — endpoint-by-endpoint Apiche config + SQL (this plan's
+│                                     #   required "additional deliverable")
+└── ... (existing plan/research/data-model/contracts/quickstart, updated in place)
+```
+
+**Structure Decision**: The retired `src/Attribution.*` and `src/Attribution.Workers` .NET projects remain in the repository during migration as the read-only behavioral reference `apiche-config.md`'s stored procedures were translated from (research.md §17); they are removed once SQL-level test parity is demonstrated. No first-party reporting frontend exists in this repository, unchanged from the original Structure Decision above — the reporting portal remains an external, separately-owned consumer, now reading the same MySQL schema (`data-model.md`) that Apiche's stored procedures and direct SQL statements also read and write.
+
 ## Complexity Tracking
 
-No Constitution Check violations were identified; this section is intentionally empty.
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Principle VI — FR-046's mandatory TOTP MFA for interactive users is dropped | Apiche's Basic-Auth-only, no-session model (constitution Principle VI, research.md §20) has no request-scoped mechanism to attach a one-time MFA challenge to; TOTP requires either a login step or a token to attach the challenge's result to, and Apiche offers neither. | A non-Apiche authentication microservice issuing JWTs after a local username/password+TOTP check, fronting only the human-facing surface — rejected (offered to and declined by the project owner during this planning session) because it would leave a bespoke, un-mandated service as a second backend entry point, directly contradicting "the entire backend is Apiche" / "no other backend entry point." Embedding a TOTP code inside the Basic Auth password field — rejected as unworkable, since a 30-second-lived code cannot coexist with a long-lived credential without either near-constant rejection or defeating the point of MFA. |
+
+`spec.md`'s FR-046 and SC-016 were formally amended to record this trade-off in the 2026-09-08 `/speckit.clarify` session (spec.md's Clarifications, "Session 2026-09-08"); this plan documented and justified the deviation ahead of that amendment, and both artifacts now agree.

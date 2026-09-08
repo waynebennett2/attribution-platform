@@ -423,3 +423,199 @@ With multiple developers, after Foundational completes:
 - Commit after each task or logical group, per this repository's git workflow.
 - Stop at any checkpoint to validate a story independently before continuing.
 - Avoid: vague tasks, same-file conflicts marked [P], cross-story dependencies that break independent testability beyond what's declared above.
+
+---
+
+# Migration to Apiche (2026-09-08)
+
+Everything above this line documents the completed .NET/ASP.NET Core build (T001–T153, all `[X]`) and is retained as history — it is also the behavioral oracle the tasks below translate from (research.md §18). Nothing above is being redone; the platform's actual runtime behavior is not changing. What follows replaces *how* that behavior is delivered, per `plan.md`'s "Architecture Migration" addendum: the backend becomes Apiche (one HTTP endpoint = one parameterized SQL statement or `CALL sp_xxx(...)`), multi-step business logic moves into MySQL stored procedures, background workers become Apiche scheduled jobs, and authentication becomes Basic Auth throughout (research.md §17–§21; `spec.md`'s 2026-09-08 clarifications). `client/dni-script` and the reporting portal are unaffected and none of their tasks are repeated here.
+
+**Source of truth for this section**: `specs/001-call-attribution-platform/apiche-config.md` — every stored procedure, endpoint and worker job named below is fully specified there (method, path, parameters, SQL/procedure body, Appendix A). Tasks below are the *build and cutover* work; they do not redesign anything `apiche-config.md` already decided.
+
+**Numbering**: continues from T153. T208–T210 below are appended out of numeric sequence (added by the 2026-09-08 `/speckit-analyze` remediation pass, after T154–T207 already existed) but execute **first**, ahead of Phase 10 — renumbering the 54 already-cross-referenced tasks in Phases 10–18 to slot them in numerically was judged riskier than a documented out-of-sequence insertion.
+
+## Phase 9.5: Pre-Migration Blocking Validation (2026-09-08 remediation)
+
+**Purpose**: Close two gaps a `/speckit-analyze` pass found before any real migration work begins: an unconfirmed foundational security assumption (T208) and two missing pre-cutover verification gates (T209, T210).
+
+**⚠️ CRITICAL**: T208 BLOCKS every task in Phases 10–18 that writes or registers SQL — do not proceed past this task on an unconfirmed assumption.
+
+- [ ] T208 Confirm, from Apiche's actual vendor documentation (not inferred from its own description), whether `<parameter_name>` substitution uses genuine parameterized/prepared-statement binding or literal string interpolation into the SQL text. If the latter (or undocumented/unconfirmed), do not proceed with T154 onward until either Apiche is confirmed to escape/sanitize substituted values safely, or an input-sanitization layer is designed and added to every endpoint — every one of `apiche-config.md`'s 44 endpoints is SQL-injectable otherwise. Record the finding in `research.md` §17 once resolved.
+- [ ] T209 [P] Design and add an explicit website-identity binding check to every DNI stored procedure (`sp_dni_allocate`, `sp_dni_heartbeat`, `sp_dni_consent`, `sp_dni_shadow_observe`): the procedure must verify the Basic-Auth-authenticated Client ID/secret's own website matches the `website_id` parameter before proceeding, rejecting a mismatch the same way FR-050 already requires an out-of-scope `matched_pool_id` to be silently dropped — otherwise one website's valid DNI credential could operate against a different website's pools. Fold this into T166's procedure bodies rather than writing it separately (depends on T161)
+- [ ] T210 [P] Add a load-test task re-running the equivalent of the retired stack's `AllocationLoadTests.cs`/`HorizontalScaleTest.cs` (T106/T120) against the migrated Apiche + MySQL-stored-procedure stack, proving SC-004 (300ms/95th-percentile allocation latency) and SC-005 (99.9% availability) hold under the new backend **before** T205's traffic cutover — not merely monitored after it — in `tests/Attribution.ContractTests/Performance/`
+- [ ] T211 [P] Run a dedicated security review of the migration's new attack surface — T208's injection-safety finding, T209's website-identity binding, the Basic Auth credential store (T161), and T162's actor-identity-injection mechanism's tamper-resistance — as its own gate on SC-012 ("no outstanding high/critical finding at launch"), distinct from and in addition to T203's behavioral-parity comparison; schedule immediately before T205's cutover
+
+**Checkpoint**: T208's answer is known and acted on; T209, T210 and T211 are scheduled into Phase 12 (T166), and Phase 18 before T205, respectively.
+
+## Phase 10: Migration Setup
+
+**Purpose**: Stand up the Apiche + MySQL toolchain alongside the still-running .NET system, so the migration can proceed without an outage.
+
+- [ ] T154 Provision an Apiche instance pointed at the existing MySQL database (same connection the .NET app currently uses) and confirm it can load a trivial config entry end-to-end
+- [ ] T155 [P] Create `db/schema/` and `db/procedures/` directories with a versioned-filename convention (e.g. `NNN_description.sql`) per research.md §13
+- [ ] T156 [P] Create the `tests/Attribution.SqlTests` project — a MySqlConnector-based test harness that calls a named stored procedure directly against the shared remote MySQL database (per this project's standing test-database convention) and asserts on result sets and resulting table state, seeded/torn down with randomized identifiers per test (research.md §18)
+- [ ] T157 [P] Create the `apiche/` directory (`endpoints/dni/`, `endpoints/admin/`, `endpoints/reports/`, `jobs/`, `auth/`) per plan.md's Target Project Structure
+- [ ] T158 Add a CI stage that runs `Attribution.SqlTests` against the shared MySQL database and validates `apiche/` config loads cleanly, running alongside (not yet replacing) the existing dotnet build/test stage, so both pipelines stay green during migration
+
+**Checkpoint**: Apiche and the SQL test harness exist and are wired into CI, with zero impact on the running .NET system.
+
+---
+
+## Phase 11: Migration Foundational (Blocking Prerequisites)
+
+**Purpose**: Schema translation, credential store, and the two cross-cutting mechanisms every migrated endpoint depends on — actor-identity injection and a stored-procedure error convention.
+
+**⚠️ CRITICAL**: No per-story migration work (Phase 12+) can begin until this phase is complete.
+
+- [ ] T159 Translate the three existing FluentMigrator migrations (`M202608100001_InitialSchema`, `M202608170001_LocalAuthAndFolderImport`, `M202608170002_MultiPoolWebsites`) into equivalent versioned plain-SQL files in `db/schema/`, preserving identical table/column definitions (data-model.md is unchanged) — apply against a scratch copy of the shared database first and diff the resulting schema against the live one to confirm byte-for-byte equivalence
+- [ ] T160 Define and document the stored-procedure error-signaling convention (`SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '<code>: <detail>'`) that every procedure in Appendix A uses for a rejected/invalid request, and confirm how Apiche surfaces a signaled error as an HTTP status + body
+- [ ] T161 Configure Apiche's native Basic Auth credential store for all three credential shapes — per-website DNI Client ID/secret (no role), per-user human credential (role attached), Integration Service API key — per research.md §20 and `contracts/admin-api.md`'s Authentication section
+- [ ] T162 Implement server-side actor-identity injection: confirm and configure how Apiche exposes the authenticated caller's resolved identity to a bound stored-procedure call as an implicit value, never as an ordinary client-writable parameter (this session's FR-035 clarification and `apiche-config.md`'s Coverage Notes flag this as the single highest-risk item in the migration — if Apiche has no such mechanism, escalate before writing any admin-write procedure, since every one of them depends on this)
+- [ ] T163 [P] Write `sp_create_user`, `sp_deactivate_user`, `sp_override_user_role` in `db/procedures/` per `apiche-config.md` Appendix A, using `UserRoleTests.cs` and the zero-System-Administrator-guard scenarios in `AccountAccessTests.cs` (`tests/Attribution.UnitTests`, `tests/Attribution.IntegrationTests`) as the behavioral oracle — first procedures written specifically to prove T162's actor-injection mechanism works end-to-end
+- [ ] T164 [P] SQL-level tests for T163's three procedures in `tests/Attribution.SqlTests/Identity/` per research.md §18 (write before/alongside T163 per Constitution Principle V)
+- [ ] T165 [P] Register all four `/v1/admin/users/*` endpoints (`apiche-config.md`'s "Admin — Users" section: List, Create, Deactivate, Override role) in `apiche/endpoints/admin/users/` — List as a direct `SELECT` with no procedure dependency, the other three bound to T163's procedures
+
+**Checkpoint**: Schema exists in `db/schema/`, actor-identity injection is proven against one real endpoint (`/v1/admin/users`), and the pattern every later story follows is established.
+
+---
+
+## Phase 12: US1 Migration — DNI allocation and tracking-number management (Priority: P1) 🎯 MVP
+
+**Goal**: Every `/v1/dni/*` and pool/number/website-configuration endpoint in `apiche-config.md` is served by Apiche + stored procedures, byte-for-byte matching the behavior `AllocationServiceTests.cs`, `MultiPoolAllocationTests.cs` and `MultiPoolSessionTests.cs` already prove.
+
+**Independent Test**: Re-run quickstart.md §2 and §2a against the Apiche-served endpoints instead of the .NET API, with no change to `client/dni-script` and no observable behavioral difference.
+
+- [ ] T166 [P] [US1] Write `sp_dni_allocate` (including FR-050 multi-pool allocation, cross-website pool-id filtering, session-growth resume, and T209's website-identity binding check — the authenticated DNI credential's own website must match the `website_id` parameter or the request is rejected) in `db/procedures/` per `apiche-config.md`, using `AllocationServiceTests.cs` and `MultiPoolAllocationTests.cs`/`MultiPoolSessionTests.cs` as the oracle (depends on T209)
+- [ ] T167 [P] [US1] Write `sp_dni_heartbeat` and `sp_dni_consent` (including T209's website-identity binding check, same as T166) in `db/procedures/` per `apiche-config.md`, using `SessionServiceTests.cs` and the consent-grant/withdrawal scenarios in `AllocationServiceTests.cs` as the oracle (depends on T209)
+- [ ] T168 [P] [US1] Write `sp_dni_shadow_observe` (including T209's website-identity binding check) and `sp_set_website_shadow_mode`/`sp_set_website_multi_pool` in `db/procedures/` per `apiche-config.md`, using `ShadowModeTests.cs` as the oracle (depends on T209)
+- [ ] T169 [P] [US1] SQL-level tests for T166–T168's five procedures in `tests/Attribution.SqlTests/Dni/` (depends on T166, T167, T168)
+- [ ] T170 [US1] Register `/v1/dni/allocate`, `/v1/dni/heartbeat`, `/v1/dni/consent`, `/v1/dni/shadow-observe` in `apiche/endpoints/dni/`, with the per-website Basic Auth Client ID/secret plus origin-restriction and rate-limiting configured per `contracts/dni-api.md` (depends on T166, T167, T168, T161)
+- [ ] T171 [US1] Point `client/dni-script`'s existing Playwright suite (`replacement.spec.ts`, `spa-replacement.spec.ts`, `multi-tab.spec.ts`, `consent.spec.ts`, `fallback.spec.ts`, `shadow-mode.spec.ts`, `multi-pool-matching.spec.js`, `multi-pool-session-growth.spec.js`) at the Apiche-served endpoints and confirm every test still passes unmodified except for the base URL/credential fixture (depends on T170)
+- [ ] T172 [P] [US1] Write `sp_create_pool`, `sp_import_tracking_numbers`, `sp_import_tracking_numbers_from_folder`, `sp_change_tracking_number_status`, `sp_move_tracking_number` in `db/procedures/` per `apiche-config.md`, reshaping the browser-upload path to accept a JSON array of pre-parsed DID strings per this session's FR-002 clarification, and confirming the folder-import path's `LOAD DATA INFILE` deployment-topology requirement (the import folder must be readable by the MySQL server process, not just the app tier — `apiche-config.md` Coverage Notes) against the actual deployment target before relying on it
+- [ ] T173 [P] [US1] SQL-level tests for T172's five procedures in `tests/Attribution.SqlTests/Pools/`, including the folder-reimport-is-safe and path-traversal-rejected scenarios `FolderImportTests.cs` already covers (depends on T172)
+- [ ] T174 [US1] Register the "Admin — Number Pools", "Admin — Numbers" and "Admin — Websites" endpoint groups in `apiche/endpoints/admin/`, all requiring the System Administrator role per `apiche-config.md` (depends on T172, T162)
+- [ ] T175 Decide and implement the replacement for `GET /v1/admin/numbers/import-folder/files`, which lists filesystem entries rather than database rows and therefore cannot be expressed as a single SQL statement (`apiche-config.md` Coverage Notes): either a small non-Apiche companion endpoint reading the configured folder, or dropping the picker in favor of an administrator typing the file name directly into T172's from-folder import call — record the decision in `research.md` once made (depends on T174)
+
+**Checkpoint**: Every US1 endpoint is served by Apiche; `client/dni-script` needs no code changes, only a base-URL/credential swap.
+
+---
+
+## Phase 13: US2 Migration — Deterministic call attribution (Priority: P2)
+
+**Goal**: 8x8 CDR/Call Leg ingestion and attribution decisioning run as Apiche-invoked stored procedures instead of `IngestionWorker`/`AttributionService`.
+
+**Independent Test**: Re-run quickstart.md §3's SC-001 seeded-call scenario set and the SC-002 triple-reingestion check against the migrated ingestion/attribution path.
+
+- [ ] T176 [P] [US2] Write `sp_ingest_call_record` and `sp_ingest_call_leg` (idempotent upsert on source natural keys, orphaned-leg handling, FR-045 re-derivation trigger) in `db/procedures/` per `apiche-config.md`, using `IngestionTests.cs` and `ReDerivationTests.cs` as the oracle
+- [ ] T177 [P] [US2] Write `sp_advance_ingestion_checkpoint` in `db/procedures/` per `apiche-config.md`
+- [ ] T178 [US2] Write `sp_attribute_call` (exact DID + window matching, unattributed/ambiguous classification and evidence storage, Review Case creation on ambiguity) in `db/procedures/` per `apiche-config.md`, using `AttributionServiceTests.cs` as the oracle (depends on T176)
+- [ ] T179 [P] [US2] SQL-level tests for T176–T178's four procedures in `tests/Attribution.SqlTests/Attribution/`, including SC-001's full seeded-call scenario set translated from `SeededCallAttributionTests.cs` and the triple-reingestion check from `IdempotentReingestionTests.cs` (depends on T176, T177, T178)
+- [ ] T180 [US2] Configure the "8x8 CDR & Call Leg ingestion" Apiche scheduled job in `apiche/jobs/ingestion-8x8.job` per `apiche-config.md`'s Background Worker Jobs section and research.md §19's documented connector assumption, binding its external-call response fields to T176/T177's procedures (depends on T176, T177)
+- [ ] T181 [US2] Implement the replay/backfill trigger (operator-specified period, safe alongside live ingestion, FR-042) as an Apiche endpoint or ad-hoc job invocation calling T176's procedure, per `BackfillService.cs`'s existing behavior
+
+**Checkpoint**: Ingestion and attribution run under Apiche with identical outcomes to the retired `IngestionWorker`/`AttributionService`.
+
+---
+
+## Phase 14: US3 Migration — Qualification (Priority: P3)
+
+**Goal**: Rule versioning and per-call qualification judging move to `sp_qualify_call` and the rule-management stored procedures.
+
+**Independent Test**: Re-run quickstart.md §4 (45s/75s boundary, rule-version publication leaving history unchanged) against the migrated path.
+
+- [ ] T182 [US3] Write `sp_qualify_call` (most-specific-scope resolution, direction/answered/duration/website-campaign/local-timezone-time-of-day conditions) in `db/procedures/` per `apiche-config.md`, using `QualificationServiceTests.cs` and `TimeOfDayConditionTests.cs` as the oracle (depends on T178)
+- [ ] T183 [P] [US3] Write `sp_create_qualification_rule_version` and `sp_delete_future_qualification_rule_version` (effective-period contiguity validation, reject gap/overlap) in `db/procedures/` per `apiche-config.md`, using `RuleVersioningTests.cs` as the oracle
+- [ ] T184 [P] [US3] SQL-level tests for T182–T183's three procedures in `tests/Attribution.SqlTests/Qualification/`, including SC-011's rule-change-leaves-history-unchanged scenario from `RuleChangeHistoryTests.cs` (depends on T182, T183)
+- [ ] T185 [US3] Register the "Admin — Qualification Rules" endpoint group in `apiche/endpoints/admin/` per `apiche-config.md` (depends on T183, T162)
+- [ ] T186 [US3] Wire `sp_qualify_call` into T176's ingestion procedure so a re-derived call is re-qualified in the same flow FR-045 requires (depends on T176, T182)
+
+**Checkpoint**: Qualification runs under Apiche with rule-version history intact.
+
+---
+
+## Phase 15: US4 Migration — Reporting and export (Priority: P4)
+
+**Goal**: `/v1/reports/*` and its CSV twins become direct parameterized `SELECT` statements (no stored procedures needed — `apiche-config.md` confirms none of this section's endpoints require one).
+
+**Independent Test**: Re-run quickstart.md's report-reconciliation checks (User Story 4) against the migrated endpoints for each role.
+
+- [ ] T187 [P] [US4] Register the seven report endpoints (dashboard, campaigns, calls, missed, qualified, unattributed, coverage) and their `.../export.csv` twins in `apiche/endpoints/reports/` per `apiche-config.md`, sharing identical SQL between each JSON/CSV pair (Coverage Notes: response-format difference only, not a SQL difference)
+- [ ] T188 [US4] Configure per-role response filtering (Analyst: read-only reports, 403 on `/v1/admin/*`; Marketing Administrator: reports + review + rules; System Administrator: all) at the Apiche routing/auth layer per FR-031, `contracts/reporting-api.md` (depends on T187, T161)
+- [ ] T189 [P] [US4] Contract/integration tests confirming report totals reconcile against underlying call records and CSV exports match their JSON siblings exactly, translated from `ReportReconciliationTests.cs` and `CsvExportTests.cs`, in `tests/Attribution.ContractTests/Reporting/` (depends on T187)
+- [ ] T190 [US4] Left-join/union the two known `PublicationDestination` values into the publication-health query so a destination with zero rows still reports (rather than being silently omitted), per `apiche-config.md` Coverage Notes on `GET /v1/admin/health/publication` (depends on T187)
+
+**Checkpoint**: Reporting is fully Apiche-served with no stored-procedure dependency, and role filtering is proven.
+
+---
+
+## Phase 16: US5 Migration — Publication to Google Ads and GA4 (Priority: P5)
+
+**Goal**: Outbox-based publication and FR-044 correction propagation move to Apiche's scheduled-job model; the outbound HTTP call itself is isolated into an explicit, minimal companion component since a MySQL stored procedure cannot make one.
+
+**Independent Test**: Re-run quickstart.md §5 against the migrated path, accepting the documented change from synchronous-in-request correction to eventually-consistent (sub-minute) per `apiche-config.md` Coverage Notes.
+
+- [ ] T191 [US5] Write `sp_correct_publications_if_needed` (mark rows for retraction/adjustment, idempotent repeated correction) in `db/procedures/` per `apiche-config.md`, using `CorrectionPropagationTests.cs` as the oracle
+- [ ] T192 [P] [US5] SQL-level tests for T191 in `tests/Attribution.SqlTests/Publication/`, including the idempotent-repeated-correction scenario (depends on T191)
+- [ ] T193 [US5] Configure the "Publication (Google Ads / GA4 outbox drain)" Apiche scheduled job in `apiche/jobs/publish-google-ads.job` and `publish-ga4.job` per `apiche-config.md`'s Background Worker Jobs section and research.md §19 — this is where the actual outbound HTTP call to Google Ads/GA4 lives, since it cannot execute inside MySQL; if Apiche's job model cannot make an outbound HTTP call itself, build the smallest possible companion dispatcher that polls `conversion_publications` for `pending`/`pending_correction` rows and performs the call, reusing the existing `GoogleAds`/`GA4` client code from `src/Attribution.Infrastructure/GoogleAds/`, `GA4/` as a starting point rather than rewriting it (depends on T191)
+- [ ] T194 [US5] Confirm end-to-end idempotency across T193's job and `sp_publish_conversion`-equivalent write path: a crash between "sent" and "recorded" cannot double-publish, per `PublicationIdempotencyTests.cs` (SC-002) (depends on T193)
+
+**Checkpoint**: Publication and correction propagation run under Apiche/companion-dispatcher, with the same zero-duplicate guarantee as before.
+
+---
+
+## Phase 17: US6 Migration — Administration, review, alerting and audit (Priority: P6)
+
+**Goal**: Every remaining admin endpoint (review, alerts, audit, health, privacy) and the Alerting/Retention worker jobs move to Apiche.
+
+**Independent Test**: Re-run quickstart.md §6 and §7 against the migrated path.
+
+- [ ] T195 [P] [US6] Write `sp_resolve_review_case` (supersede Attribution, trigger T191's correction if already published, audit) in `db/procedures/` per `apiche-config.md`, using `ReviewResolutionTests.cs` as the oracle (depends on T178, T191)
+- [ ] T196 [P] [US6] Write `sp_acknowledge_alert`, `sp_evaluate_alerts`, `sp_evaluate_one_alert` in `db/procedures/` per `apiche-config.md`, using `AlertingTests.cs` as the oracle
+- [ ] T197 [P] [US6] Write `sp_erase_visitor`, `sp_deidentify_expired`, `sp_purge_expired` in `db/procedures/` per `apiche-config.md`, accepting the SHA2-based approximation of the .NET HMAC-SHA256 surrogate as a documented, non-bit-identical deviation (Coverage Notes) — flag this explicitly in the PR if any external reconciliation tooling depends on recomputing the surrogate independently
+- [ ] T198 [P] [US6] SQL-level tests for T195–T197's seven procedures in `tests/Attribution.SqlTests/Administration/`, translating `AuditLogTests.cs`, `AuditImmutabilityTests.cs`, `RetentionIntegrityTests.cs` and `ErasureSlaTests.cs` scenarios (depends on T195, T196, T197)
+- [ ] T199 [US6] Register the "Admin — Review", "Admin — Alerts", "Admin — Audit", "Admin — Health", "Admin — Privacy" endpoint groups in `apiche/endpoints/admin/` per `apiche-config.md` (depends on T195, T196, T197, T162)
+- [ ] T200 [US6] Configure the "Alerting evaluation" and "Retention (de-identification & purge)" Apiche scheduled jobs in `apiche/jobs/alerting.job`, `retention.job` per `apiche-config.md`; alert email/webhook delivery needs the same outbound-HTTP treatment as T193 — either a native Apiche capability or the smallest possible companion dispatcher, reusing `src/Attribution.Workers/AlertingWorker/`'s existing delivery code as a starting point (depends on T196)
+- [ ] T201 [US6] Confirm the Integration Service role is refused every interactive endpoint and the DNI client credential carries no role, across the full migrated surface, per FR-038 and this session's FR-037 clarification (depends on T170, T174, T199)
+
+**Checkpoint**: All six user stories are served by Apiche; the .NET runtime is no longer required for any request path.
+
+---
+
+## Phase 18: Migration Polish & Cutover
+
+**Purpose**: Prove full parity, cut traffic over, and retire the retired .NET runtime.
+
+- [ ] T202 Run every quickstart.md scenario end-to-end against the fully-migrated Apiche stack (superseding T104's original run) and confirm no behavioral regression against the .NET baseline
+- [ ] T203 [P] Run the full existing `Attribution.UnitTests`/`Attribution.IntegrationTests`/`Attribution.Contract` suite one final time against the retired .NET code purely as the parity oracle, and diff its pass/fail results against `Attribution.SqlTests`/`Attribution.ContractTests` run against Apiche for the same scenarios
+- [ ] T204 Follow up on the FR-046/SC-016, FR-037, FR-035 and FR-002 amendments already recorded in spec.md's 2026-09-08 Clarifications session, confirming no remaining reference to TOTP, JWT, refresh tokens, or "cannot hold a secret" survives in any still-referenced doc
+- [ ] T205 Cut request traffic over to Apiche (per deployment topology) and monitor SC-004/SC-005 (allocation latency/availability) and SC-002 (zero duplicate attribution/conversion) for at least one full ingestion cycle before decommissioning the .NET runtime
+- [ ] T206 Remove `src/Attribution.Api`, `src/Attribution.Application`, `src/Attribution.Domain`, `src/Attribution.Infrastructure`, `src/Attribution.Workers` and their `tests/Attribution.UnitTests`/`IntegrationTests`/`Contract` projects once T203's parity comparison and T205's monitoring window are both clean (research.md §17) — retain the removal commit's diff as the permanent behavioral-equivalence record, since the code itself will be gone
+- [ ] T207 Update `README`/deployment docs and CI to reference only the Apiche + MySQL stack, removing the dotnet build/test pipeline stage added historically and the parity stage added at T158
+
+---
+
+## Migration Dependencies & Execution Order
+
+- **Phase 10 (Setup)** → **Phase 11 (Foundational)**: BLOCKS every per-story migration phase, primarily because T162 (actor-identity injection) is a prerequisite for every admin-write procedure in Phases 12–17.
+- **Phase 12 (US1)** can start immediately after Phase 11 and has no dependency on other migration phases, mirroring US1's independence in the original build.
+- **Phase 13 (US2)** depends only on Phase 11.
+- **Phase 14 (US3)** depends on Phase 13 (T178's `sp_attribute_call` must exist for `sp_qualify_call` to have something to judge).
+- **Phase 15 (US4)** depends on Phases 13 and 14 (reports read Attribution and Qualification Result rows).
+- **Phase 16 (US5)** depends on Phase 14 (publishes qualified calls).
+- **Phase 17 (US6)** depends on Phase 13 (Review Case) and Phase 16 (correction propagation) for `sp_resolve_review_case`.
+- **Phase 18 (Cutover)** depends on all of Phases 12–17 being complete and independently validated.
+
+### Parallel Opportunities
+
+- Phases 12 and 13 (US1, US2 migration) can be staffed in parallel once Phase 11 completes, mirroring the original build's US1/US2 independence.
+- All stored-procedure-writing tasks marked [P] within a phase touch different files and can run in parallel.
+- SQL-level test tasks marked [P] can run in parallel with each other but not with the procedure(s) they test.
+
+---
+
+## Migration Implementation Strategy
+
+1. Phase 10 + 11 first — the actor-identity injection mechanism (T162) is the one unknown that could force a design change if Apiche can't do it cleanly; prove it on the smallest possible endpoint (`/v1/admin/users`) before committing further procedures to the pattern.
+2. Migrate US1 next and cut `client/dni-script`'s tests over to it (T171) as an early, low-risk proof that Apiche can serve real traffic correctly — this is the platform's highest-volume, latency-sensitive path (SC-004), so proving it early surfaces performance problems while there's still time to reconsider.
+3. Migrate US2 → US3 → US4 → US5 → US6 in dependency order, validating each against its quickstart.md scenarios before moving on, exactly as the original build did.
+4. Only cut real traffic over (T205) and remove the .NET projects (T206) once every story has passed its migrated independent test — this is a full backend replacement of a system with real deployment history (see the repository's recent deploy/UAT-checklist commits), so treat the .NET runtime as the safety net until Apiche has demonstrably matched it, not as dead code to delete early.

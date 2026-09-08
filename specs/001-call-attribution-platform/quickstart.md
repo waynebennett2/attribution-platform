@@ -2,25 +2,27 @@
 
 **Feature**: 001-call-attribution-platform | **Date**: 2026-08-10
 
-This is a validation guide, not a build guide — it proves the feature works end-to-end against the acceptance bars in spec.md. Full setup, environment configuration and CI wiring are implementation tasks; see `data-model.md` for schema details and `contracts/` for the exact request/response shapes referenced below.
+This is a validation guide, not a build guide — it proves the feature works end-to-end against the acceptance bars in spec.md. Full setup, environment configuration and CI wiring are implementation tasks; see `data-model.md` for schema details, `contracts/` for the exact request/response shapes, and `apiche-config.md` for the Apiche endpoint/SQL configuration referenced below.
+
+> **Updated 2026-09-08**: steps below reflect the Apiche architecture (plan.md's "Architecture Migration" addendum; research.md §17–§21). Where a step still names a `dotnet`/`.NET` artifact, it refers to the retired reference implementation kept during migration as a behavioral oracle (research.md §18), not the running system.
 
 ## Prerequisites
 
-- .NET 8 SDK
-- Docker (for local MySQL 8.0+ and Testcontainers-backed integration tests)
+- Apiche (pointed at the shared MySQL instance and loaded with `apiche-config.md`'s endpoint/job configuration)
+- MySQL 8.0+ (per research.md §2's `FOR UPDATE SKIP LOCKED` requirement) — the shared remote test database per this project's standing testing convention, not a disposable local container
 - Node.js (for the `client/dni-script` package and its Playwright tests)
 - A sandbox/test credential set for: Analytics for 8x8 Work, Google Ads (test account), GA4 (test property) — real credentials are not required to validate attribution/qualification logic, only to validate the publication path end-to-end
 
 ## 1. Local environment
 
 ```bash
-docker compose up -d mysql          # MySQL 8.0+, per research.md §2's FOR UPDATE SKIP LOCKED requirement
-dotnet run --project src/Attribution.Infrastructure -- migrate   # FluentMigrator, applies schema from data-model.md
-dotnet run --project src/Attribution.Api
-dotnet run --project src/Attribution.Workers
+mysql < db/schema/*.sql                  # apply schema migrations, in order (research.md §13)
+mysql < db/procedures/*.sql              # load stored procedures (apiche-config.md Appendix A)
+apiche load apiche-config.md             # register endpoints + scheduled jobs (syntax illustrative —
+                                          #   bind to Apiche's actual config-loading command)
 ```
 
-Seed a Website, a Number Pool with a handful of active Tracking Numbers, and the default Qualification Rule (FR-022) via `/v1/admin/*` (contracts/admin-api.md) or a seed script — a minimum viable environment for every scenario below needs at least one Website with `permitted_origins` including the test host.
+Seed a Website with a DNI Client ID/secret pair, a Number Pool with a handful of active Tracking Numbers, and the default Qualification Rule (FR-022) via `/v1/admin/*` (contracts/admin-api.md, using a seeded per-user Basic Auth credential — research.md §20) or a seed script — a minimum viable environment for every scenario below needs at least one Website with `permitted_origins` including the test host.
 
 ## 2. Story 1 — DNI allocation and session capture (SC-003, SC-004, SC-013)
 
@@ -60,7 +62,7 @@ Qualify one call whose session carries a `gclid` and `ga4_client_id`, and one wh
 
 ## 6. Story 6 — Administration and audit (SC-006, SC-016, SC-017)
 
-Perform one action of each administrative type (role change, number suspension, rule publication) and confirm all three appear in `GET /v1/admin/audit` with actor/target/before/after (SC-006); attempt to alter an audit entry and confirm it's refused and itself logged. Disable a signed-in test user at the identity provider and confirm their next request is refused without waiting for session expiry (SC-016). Induce a stalled ingestion, a failing publication destination, a pool crossing its utilisation warning, and a review case left open past 48 hours; confirm each raises a webhook + email alert within 15 minutes, repeats without duplicating, and clears on resolution (SC-017).
+Perform one action of each administrative type (role change, number suspension, rule publication) and confirm all three appear in `GET /v1/admin/audit` with actor/target/before/after (SC-006); attempt to alter an audit entry and confirm it's refused and itself logged. Deactivate a test user's account (`POST /v1/admin/users/{id}/deactivate`) and confirm their very next request using that Basic Auth credential is refused (SC-016, immediate under the Basic Auth model — research.md §20; no waiting for a refresh interval). Induce a stalled ingestion, a failing publication destination, a pool crossing its utilisation warning, and a review case left open past 48 hours; confirm each raises a webhook + email alert within 15 minutes, repeats without duplicating, and clears on resolution (SC-017).
 
 ## 7. Retention and erasure (SC-014, SC-019)
 

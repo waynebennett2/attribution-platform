@@ -1,6 +1,6 @@
 # Contract: DNI Visitor-Facing API
 
-Unauthenticated (cannot hold a secret, FR-037); instead origin-restricted (`Origin` header checked against the Website's `permitted_origins`) and rate-limited (600 req/min/origin, 10 req/min/client — FR-037). Every response completes within 300ms for ≥95% of requests at peak (SC-004).
+> **Updated 2026-09-08** — see research.md §20. Every request now carries `Authorization: Basic <base64(client_id:client_secret)>` using a per-website Client ID/secret pair issued when the website is configured, checked fresh on every request and carrying no role (constitution Principle VI). This is a low-value credential embedded in public JS — like the rest of this endpoint's protections, it cannot rely on the secret staying secret — so origin-restriction (`Origin` header checked against the Website's `permitted_origins`) and rate-limiting (600 req/min/origin, 10 req/min/client — FR-037) remain as defense-in-depth on top of it, unchanged from the original design. Every response completes within 300ms for ≥95% of requests at peak (SC-004).
 
 Every request MUST also carry the `X-Attribution-Client-Token` header, set to the same value as the request body's `client_token`, so the rate-limiting middleware can enforce the per-client threshold without buffering and parsing the JSON body on every call.
 
@@ -46,7 +46,7 @@ No session or allocation record is created for this response shape (FR-039, FR-0
   ```
   A requested pool with no number available is omitted from `allocations` and instead reported the same way a `pool_exhausted` single-pool allocation is, scoped to that pool: the client falls back to that pool's own `default_number` (already in hand from `pools`) for that pool's occurrences only (FR-050), while every other requested pool's allocation proceeds normally.
 
-**Errors**: 403 origin not permitted; 429 rate limit exceeded (both fail closed to the default number on the client side, per FR-011 — the client never blocks rendering on this call).
+**Errors**: 401 invalid client credential; 403 origin not permitted; 429 rate limit exceeded (all fail closed to the default number on the client side, per FR-011 — the client never blocks rendering on this call).
 
 ## POST /v1/dni/heartbeat
 

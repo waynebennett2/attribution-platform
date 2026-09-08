@@ -1,13 +1,17 @@
 # Contract: Administration API
 
-All endpoints require a platform-issued JWT (FR-046) and enforce RBAC per FR-038. Every state-changing call writes an Audit Entry (FR-035) with actor, action, target, before/after values.
+> **Updated 2026-09-08** — see plan.md's "Architecture Migration" addendum and research.md §20. All endpoints require HTTP Basic Auth, checked fresh on every request against a per-user long-lived credential with a role attached, and enforce RBAC per FR-038. Every state-changing call writes an Audit Entry (FR-035) with actor, action, target, before/after values. This supersedes the JWT-based auth model previously described here; `spec.md`'s FR-046/SC-016 were formally amended to match in the 2026-09-08 `/speckit.clarify` session.
 
-## Authentication (FR-046)
+## Authentication (Basic Auth — supersedes FR-046's JWT/TOTP design, research.md §20)
 
-| Method | Path | Notes |
+There is no sign-in or refresh endpoint. Every request to any endpoint below carries an `Authorization: Basic <base64(username:password)>` header, verified independently each time:
+
+| Credential | Used by | Notes |
 |---|---|---|
-| POST | `/v1/auth/sign-in` | Unauthenticated — `{ username, password, totp_code }` → `{ access_token, expires_at, refresh_token }`. The platform's sole interactive sign-in path — local username/password plus mandatory TOTP MFA for every role. Every sign-in attempt, success or failure, is audited. |
-| POST | `/v1/auth/refresh` | Unauthenticated — `{ refresh_token }` → `{ access_token, expires_at, refresh_token }`, rotating the refresh token on each use. Refused (401) if the account has been deactivated or the refresh token is unknown/expired, which is what bounds a deactivated account's access loss to one refresh interval (SC-016). |
+| Per-user username/password | System Administrator, Marketing Administrator, Analyst | Long-lived, stored only as a salted hash (data-model.md's User entity). Checked, and the row's role enforced, on every request — no session, no MFA challenge. Deactivating the account (`is_active = false`) removes access on the very next request (SC-016, strengthened from "within one refresh interval" to immediate). |
+| API key (as the Basic Auth password) | Integration Service | Fixed identifying username + API key; barred from every interactive-only endpoint (FR-038). |
+
+Every failed Basic Auth check against a human or integration credential is written to the audit log, preserving FR-046's "every sign-in attempt, successful or failed, MUST be audited" intent now that there is no discrete sign-in event to anchor it to.
 
 ## Number pools & numbers (FR-001–FR-007)
 
@@ -44,7 +48,7 @@ All endpoints require a platform-issued JWT (FR-046) and enforce RBAC per FR-038
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/v1/admin/users` | lists every local account (System Administrator, Marketing Administrator, Analyst) and its effective role |
-| POST | `/v1/admin/users` | `{ "username", "password", "role" }` → creates a local account, generating a fresh TOTP secret returned once as an `otpauth://` provisioning URI for the administrator to hand to whoever will hold it |
+| POST | `/v1/admin/users` | `{ "username", "password", "role" }` → creates a local account with the given Basic Auth username/password (stored as a salted hash) and role (2026-09-08: no TOTP secret is issued — MFA is dropped under the Basic Auth model, research.md §20) |
 | POST | `/v1/admin/users/{id}/deactivate` | audited; rejected with 409 if this would leave zero active System Administrator accounts (FR-046) |
 | POST | `/v1/admin/users/{id}/role-override` | `{ "role": "..." }` — audited; rejected with 409 if this would leave zero active System Administrator accounts, same guard as `/deactivate` (FR-046) |
 
