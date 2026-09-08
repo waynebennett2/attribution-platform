@@ -22,7 +22,7 @@ apiche load apiche-config.md             # register endpoints + scheduled jobs (
                                           #   bind to Apiche's actual config-loading command)
 ```
 
-Seed a Website with a DNI Client ID/secret pair, a Number Pool with a handful of active Tracking Numbers, and the default Qualification Rule (FR-022) via `/v1/admin/*` (contracts/admin-api.md, using a seeded per-user Basic Auth credential — research.md §20) or a seed script — a minimum viable environment for every scenario below needs at least one Website with `permitted_origins` including the test host.
+Seed a Website with a DNI Client ID/secret pair, a Number Pool with a handful of active Tracking Numbers, and the default Qualification Rule (FR-022) by connecting directly to MySQL as a seeded `role_system_administrator` database account and invoking the operations in `contracts/admin-api.md` (research.md §22) or a seed script — a minimum viable environment for every scenario below needs at least one Website with `permitted_origins` including the test host.
 
 ## 2. Story 1 — DNI allocation and session capture (SC-003, SC-004, SC-013)
 
@@ -54,7 +54,7 @@ Seed the exact call set SC-001 specifies: one call inside the allocation window,
 
 ## 4. Story 3 — Qualification (User Story 3 Acceptance Scenarios)
 
-Feed attributed calls at 45s and 75s connected duration against the default rule; confirm the 45s call is not qualified and the 75s call is, each recording the rule version applied. Publish a new rule version for a specific website scope with a different threshold (contracts/admin-api.md's `POST /v1/admin/qualification-rules`); confirm previously-judged calls keep their original result and version reference, and only calls after the new version's `effective_start` are judged by it.
+Feed attributed calls at 45s and 75s connected duration against the default rule; confirm the 45s call is not qualified and the 75s call is, each recording the rule version applied. Publish a new rule version for a specific website scope with a different threshold (contracts/admin-api.md's qualification-rule creation operation, invoked directly against the database per research.md §22); confirm previously-judged calls keep their original result and version reference, and only calls after the new version's `effective_start` are judged by it.
 
 ## 5. Story 5 — Publication (SC-007, SC-015)
 
@@ -62,7 +62,7 @@ Qualify one call whose session carries a `gclid` and `ga4_client_id`, and one wh
 
 ## 6. Story 6 — Administration and audit (SC-006, SC-016, SC-017)
 
-Perform one action of each administrative type (role change, number suspension, rule publication) and confirm all three appear in `GET /v1/admin/audit` with actor/target/before/after (SC-006); attempt to alter an audit entry and confirm it's refused and itself logged. Deactivate a test user's account (`POST /v1/admin/users/{id}/deactivate`) and confirm their very next request using that Basic Auth credential is refused (SC-016, immediate under the Basic Auth model — research.md §20; no waiting for a refresh interval). Induce a stalled ingestion, a failing publication destination, a pool crossing its utilisation warning, and a review case left open past 48 hours; confirm each raises a webhook + email alert within 15 minutes, repeats without duplicating, and clears on resolution (SC-017).
+Perform one action of each administrative type (role change, number suspension, rule publication), each connected directly to the database as a `role_system_administrator` account, and confirm all three appear in the audit-log query with actor/target/before/after (SC-006) — the actor resolved from `CURRENT_USER()`, not a request field; attempt to alter an audit entry and confirm it's refused and itself logged. Deactivate a test user's native database account and confirm their very next database connection attempt is refused (SC-016, immediate under the direct-database-access model — research.md §22; no token or session to wait out). Induce a stalled ingestion, a failing publication destination, a pool crossing its utilisation warning, and a review case left open past 48 hours; confirm each raises a webhook + email alert within 15 minutes, repeats without duplicating, and clears on resolution (SC-017).
 
 ## 7. Retention and erasure (SC-014, SC-019)
 

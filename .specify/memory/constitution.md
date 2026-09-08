@@ -1,6 +1,6 @@
 # 8x8 Call Attribution Platform — Constitution
 
-**Version:** 1.1.2
+**Version:** 2.0.0
 **Ratified:** 2026-08-05
 **Last Amended:** 2026-09-08
 
@@ -15,14 +15,13 @@ This constitution governs the design and implementation of the 8x8 Call Attribut
 ### I. Deterministic Attribution Only (NON-NEGOTIABLE)
 Call attribution must be based strictly on DID allocation and time-window matching against a website session. The system must never use probabilistic, fuzzy, or heuristic matching to attribute a call. Any call that cannot be matched with certainty is classified as unattributed or ambiguous and surfaced for manual review — it is never guessed. *(Rationale: FR-018, FR-020, FR-021 — attribution integrity is the core value proposition versus Mediahawk.)*
 
-### II. Layered Architecture
-The backend will consist only of a 3rd party API tool called apiche which exposes API endpoints to the client. Apiche receives data via a GET/POST/PUT/DELETE. For GET/DELETE methods it parses data from the URL parameter, for POSTS/PUTS it parses data from JSON objects in the POST/UT body. It utalises the parsed data
-as fields in SQL queries. The fields are either the names of the URL paramertes encapsulated by <>, or names of the JASON objects aslo encapsulated by <>. During  execution, these fields are replaced by the actaul data bebeing passed from the URL paramters of JSON objects.
- *(Rationale: explicit non-functional maintainability requirement; also required for independent unit testing of business logic.)*
+### II. Layered Architecture (Visitor-Facing and Background Surface) *(narrowed 2026-09-08 — see Amendment History)*
+The visitor-facing Dynamic Number Insertion surface, and all background/worker processing, are served exclusively by a 3rd-party API tool called Apiche. Apiche exposes API endpoints to the DNI client: it accepts data via GET/POST/PUT/DELETE — GET/DELETE parameters come from the URL query string, POST/PUT parameters come from a JSON object in the request body — and each endpoint is backed by exactly one parameterized SQL statement, with `<parameter_name>` placeholders bound 1:1 to a URL parameter or JSON field, substituted with the actual received value at execution time. Administrative and reporting operations are governed by Principle III's direct-database-access model instead — they are not Apiche endpoints. *(Rationale: explicit non-functional maintainability requirement for the one surface that must remain gateway-fronted because it is public and untrusted; also required for independent unit/SQL-level testing of business logic.)*
 
-### III. API-First
-All backend capability is exposed through versioned REST APIs. The PHP/JS/CSS reporting frontend should have direct access to the DB, the DNI JavaScript client is API consumer only, any communication with 8x8 has to happen via API, and any future customer portals or mobile apps are API consumers only — no shared database access, no business logic duplicated client-side
- *(Rationale: explicit architectural requirement to support multiple frontends/future channels.)*
+### III. API-First for Untrusted Surfaces; Direct Database Access for Trusted Internal Tooling *(amended 2026-09-08 — see Amendment History)*
+The DNI JavaScript client is an API consumer only, calling Apiche's versioned REST endpoints (Principle II) — it is public, untrusted code and MUST NOT hold database credentials or embed business logic. Any communication with 8x8 happens via API in the same way. Any future customer-facing or mobile-app consumer is likewise an API consumer only, with no shared database access and no business logic duplicated client-side.
+
+The PHP/JS/CSS reporting frontend, and the platform's administrative tooling, are trusted internal operator applications and MUST instead connect directly to the database — each interactive human user authenticates as their own native database account, mapped to one of the database's own roles (System Administrator, Marketing Administrator, Analyst), and authorization is enforced by the database's own role grants rather than by an API-layer check. This is not a weakening of Principle VI's security-by-default requirement — enforcement simply moves to the database engine, which remains server-side and non-bypassable by the calling application. *(Rationale: the reporting and administrative surfaces are used only by trusted, already-authenticated internal operators — not the public — so routing them through Apiche added a layer without adding safety; the visitor-facing surface has no such trust boundary and must stay gateway-fronted.)*
 
 ### IV. Idempotent, Auditable Operations
 All ingestion (Call Detail Records, Call Legs) and all state-changing operations must be idempotent and safe to retry. Every attribution decision stores its supporting evidence (matched DID, session window, timestamps). Every administrator action is written to an immutable audit log. *(Rationale: FR-016, FR-017, FR-019, FR-035, NFR Reliability/Compliance, Acceptance Criteria "no duplicate attribution.")*
@@ -30,8 +29,8 @@ All ingestion (Call Detail Records, Call Legs) and all state-changing operations
 ### V. Test-First for Business Logic (NON-NEGOTIABLE)
 All business logic — number allocation, session matching, attribution, qualification rule evaluation — must have unit tests written before or alongside implementation, not after. No PR touching Domain or Application layer logic merges without passing tests. Integration tests cover 8x8 and Google API boundaries using recorded/mocked responses. *(Rationale: explicit user requirement; also the only way to trust "never guess attribution" over time as rules evolve.)*
 
-## VI. Security by Default
-All endpoints require TLS. All API access is authenticated via basic authentication (client ID/client secret) only to be used for the Javascript client (user-facing) or API keys (system-to-system). No roles required for the Javascfript client, roles only required for System Administrator and Analyst for Reporting. Secrets and credentials are never stored in source control or logs. *(Rationale: NFR Security; FR-032 user/role management.)**
+### VI. Security by Default *(scoped 2026-09-08 — see Amendment History)*
+All endpoints require TLS, and so does every direct database connection under Principle III. Apiche API access (the DNI surface) is authenticated via HTTP Basic authentication — a per-website client ID/client secret for the JavaScript client (no role required), or an API key for system-to-system access. Administrative and reporting access is not an Apiche/HTTP surface at all (Principle III): each interactive human authenticates as their own native database account, with roles (System Administrator, Marketing Administrator, Analyst) enforced by the database's own role grants. Secrets and credentials are never stored in source control or logs. *(Rationale: NFR Security; FR-032 user/role management.)*
 
 ### VII. Observable by Design
 Every service emits structured logs, health checks, and metrics (ingestion lag, allocation failures, attribution match rate, API latency). Structured logging must allow tracing a single call from DNI allocation through attribution to Google Ads/GA4 publication. *(Rationale: NFR Monitoring; supports the SC-001/SC-018 attribution-accuracy acceptance criteria and operational troubleshooting.)*
@@ -44,8 +43,8 @@ Qualification rules, number pool assignment (by website/campaign/business unit),
 **Worker services:** ApiChe for attribution processing.
 - **Database:** MySQL.
 - **Architecture style:** Layered (N-tier) monolith-first, structured to allow future extraction of the ingestion/worker services if scale requires it.
-- **Data access:** all data access for processing will be handled by Apiche
-- **Background processing:** Scheduled/worker services for 8x8 polling (CDRs, Call Legs), and and Google Ads/GA4 publication will be done by Apiche. 
+- **Data access:** DNI data access is handled by Apiche; administrative and reporting data access connects directly to the database under native database role-based access control (Principle III, 2026-09-08 amendment) — not through Apiche.
+- **Background processing:** Scheduled/worker services for 8x8 polling (CDRs, Call Legs), and Google Ads/GA4 publication, are done by Apiche. 
 - **API style:** REST, versioned, OpenAPI-documented.
 - **Testing:** xUnit (or NUnit) for unit tests against Domain/Application layers; integration test project for infrastructure boundaries (MySQL, 8x8 API, Google Ads/GA4 API) using test containers or mocked HTTP. The DNI insertion client additionally requires its own automated browser-level tests covering number replacement, single-page-application navigation, session stickiness, consent grant and withdrawal, and fallback to the default number — no server-side test can evidence what a visitor actually sees.
 - **CI/CD:** Automated build, test, and static analysis gate on every PR; no merge to main with failing or skipped tests on business-logic code.
@@ -81,6 +80,16 @@ Qualification rules, number pool assignment (by website/campaign/business unit),
 - Reviewers are expected to flag any deviation from Principles I, IV, V, or VI explicitly — these four are treated as non-negotiable given the accuracy, audit, and security requirements of a commercial attribution platform.
 
 ## Amendment History
+
+### 2.0.0 — 2026-09-08 (MAJOR)
+
+**Change.** Principle II is narrowed to govern only the visitor-facing DNI surface and background/worker processing — Apiche is no longer described as "the entire backend" with "no other backend entry point." Principle III is amended to extend the reporting frontend's existing direct-database-access allowance to also cover the platform's administrative operations, with authorization enforced via native database roles (System Administrator, Marketing Administrator, Analyst) instead of an Apiche/HTTP-layer RBAC check. Principle VI is updated to match: Basic Auth now governs only the Apiche/DNI surface, while administrative and reporting access authenticates as native database accounts under Principle III. (While editing Principle VI's line, also corrected its heading level to match every other principle and a typo ("Javascfript"), both pre-existing and unrelated to this amendment's substance.)
+
+**Rationale.** After reviewing `apiche-config.md` (produced by feature 001's Apiche-migration plan), the project owner determined that routing purely internal, already-trusted administrative and reporting operations through Apiche added an intermediary layer without adding real protection, since the visitor-facing surface Apiche actually protects — public, untrusted JavaScript that can never safely hold a database credential — is categorically different from an internal operator signed into an admin tool or reporting portal. Direct database access for these two surfaces, enforced by the database's own role-based access control, keeps enforcement server-side and non-bypassable — consistent with Principle VI — while removing Apiche as an unnecessary intermediary for trusted internal tooling.
+
+**Approval.** Requested directly by the project owner, 2026-09-08.
+
+**Migration note.** This is a MAJOR amendment because it removes Principle II's previous absolute claim that Apiche is the entire backend with no other entry point — a backward-incompatible change to a Core Principle, per this constitution's own semantic-versioning rule. Feature 001's `plan.md`, `research.md`, `data-model.md`, `contracts/`, `apiche-config.md` and `tasks.md` all require corresponding updates, tracked as part of the same session that produced this amendment. DNI and background-worker processing are unaffected and remain Apiche-fronted exactly as before.
 
 ### 1.1.2 — 2026-09-08 (PATCH)
 

@@ -1,17 +1,17 @@
 # Contract: Administration API
 
-> **Updated 2026-09-08** — see plan.md's "Architecture Migration" addendum and research.md §20. All endpoints require HTTP Basic Auth, checked fresh on every request against a per-user long-lived credential with a role attached, and enforce RBAC per FR-038. Every state-changing call writes an Audit Entry (FR-035) with actor, action, target, before/after values. This supersedes the JWT-based auth model previously described here; `spec.md`'s FR-046/SC-016 were formally amended to match in the 2026-09-08 `/speckit.clarify` session.
+> **Updated 2026-09-08, twice.** First to HTTP Basic Auth (plan.md's "Architecture Migration" addendum, research.md §20) — now superseded again, same day: after reviewing `apiche-config.md`, the project owner moved every operation below off Apiche entirely, onto **direct database access** (research.md §22, constitution amendment 2.0.0). **These are no longer HTTP endpoints.** Each row below is retained as a stable operation catalog — what the operation does, its role requirement, its parameters — but "Method"/"Path" now identifies the operation for cross-reference against `apiche-config.md` (whose Admin sections give the exact `CALL sp_xxx(...)` or `SELECT` a trusted internal client runs directly against MySQL), not a literal route a client sends an HTTP request to. Every state-changing call still writes an Audit Entry (FR-035) with actor, action, target, before/after values — the actor now comes from the database's own authenticated session (`CURRENT_USER()`), not a request field.
 
-## Authentication (Basic Auth — supersedes FR-046's JWT/TOTP design, research.md §20)
+## Authentication (direct database access — supersedes both the JWT/TOTP and the Basic Auth designs previously described here)
 
-There is no sign-in or refresh endpoint. Every request to any endpoint below carries an `Authorization: Basic <base64(username:password)>` header, verified independently each time:
+There is no HTTP layer, no sign-in endpoint, and no request to carry a header on. Each interactive human connects directly to the database as their own individual native database account:
 
 | Credential | Used by | Notes |
 |---|---|---|
-| Per-user username/password | System Administrator, Marketing Administrator, Analyst | Long-lived, stored only as a salted hash (data-model.md's User entity). Checked, and the row's role enforced, on every request — no session, no MFA challenge. Deactivating the account (`is_active = false`) removes access on the very next request (SC-016, strengthened from "within one refresh interval" to immediate). |
-| API key (as the Basic Auth password) | Integration Service | Fixed identifying username + API key; barred from every interactive-only endpoint (FR-038). |
+| Individual native database account, mapped to a database role | System Administrator, Marketing Administrator, Analyst | One account per human (data-model.md's User entity, `db_username`), granted membership in `role_system_administrator` / `role_marketing_administrator` / `role_analyst`. The database engine itself checks the credential and enforces the role's grants on every operation — no session, no MFA challenge, no Apiche involvement. Deactivating the account (disabling it at the database level) removes access on the very next operation attempted with it (SC-016, immediate). |
+| API key (Basic Auth password against Apiche) | Integration Service | Unaffected by this change — Integration Service is neither an Admin nor a Reporting operation, and remains authenticated via Apiche exactly as before (research.md §20); barred from every interactive-only operation (FR-038). |
 
-Every failed Basic Auth check against a human or integration credential is written to the audit log, preserving FR-046's "every sign-in attempt, successful or failed, MUST be audited" intent now that there is no discrete sign-in event to anchor it to.
+Every failed authentication attempt against a human or Integration Service credential is written to the audit log, preserving FR-046's "every sign-in attempt, successful or failed, MUST be audited" intent now that there is no discrete sign-in event to anchor it to — for `local` accounts this means every refused database connection attempt.
 
 ## Number pools & numbers (FR-001–FR-007)
 
@@ -48,7 +48,7 @@ Every failed Basic Auth check against a human or integration credential is writt
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/v1/admin/users` | lists every local account (System Administrator, Marketing Administrator, Analyst) and its effective role |
-| POST | `/v1/admin/users` | `{ "username", "password", "role" }` → creates a local account with the given Basic Auth username/password (stored as a salted hash) and role (2026-09-08: no TOTP secret is issued — MFA is dropped under the Basic Auth model, research.md §20) |
+| POST | `/v1/admin/users` | `{ "username", "role" }` → creates a native database account for `username` (the database's own account-creation facility sets the actual password, communicated to the new user out of band — never through this operation or stored in this platform's own records), grants it the matching database role, and records the mapping (2026-09-08, twice: no TOTP secret is issued — MFA is dropped under the direct-database-access model, research.md §22) |
 | POST | `/v1/admin/users/{id}/deactivate` | audited; rejected with 409 if this would leave zero active System Administrator accounts (FR-046) |
 | POST | `/v1/admin/users/{id}/role-override` | `{ "role": "..." }` — audited; rejected with 409 if this would leave zero active System Administrator accounts, same guard as `/deactivate` (FR-046) |
 

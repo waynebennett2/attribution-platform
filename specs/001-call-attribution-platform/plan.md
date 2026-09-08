@@ -28,6 +28,16 @@ Replace Mediahawk with a standalone call attribution platform built on 8x8 Work:
 
 **What this means for `/speckit-tasks`**: the existing `tasks.md` was written against the ASP.NET Core design and needs to be regenerated against this migration before implementation resumes — flagged here rather than actioned, since task generation is out of `/speckit-plan`'s scope.
 
+### Further narrowing (2026-09-08, same day): Admin and Reporting move to direct database access
+
+After reviewing `apiche-config.md` (the endpoint-by-endpoint translation this migration produced), the project owner decided Apiche should front **only** the visitor-facing DNI surface and the background scheduled jobs — not Admin or Reporting. This is now constitution amendment 2.0.0 (MAJOR), and supersedes the "API surface" and "Unaffected" bullets above for the Admin/Reporting portion of what they described. See `research.md` §22 for the full decision record.
+
+- **What actually moves**: every operation under `apiche-config.md`'s `## Admin — ...` and `## Reporting` sections — pools, numbers, websites, users, qualification rules, review, alerts, audit, health, privacy, and every report/export — is no longer an Apiche HTTP endpoint. A trusted internal client (administrative tooling, and the existing reporting portal) instead connects directly to MySQL over TLS and runs the same SQL/stored procedure directly.
+- **What stays on Apiche**: the four `/v1/dni/*` endpoints (allocate, heartbeat, consent, shadow-observe) and the four background scheduled jobs (8x8 ingestion, Google Ads/GA4 publication, alerting, retention) — unchanged from the rest of this Architecture Migration section.
+- **New authorization model for Admin/Reporting**: native MySQL roles (`role_system_administrator`, `role_marketing_administrator`, `role_analyst`), each individual human granted their own MySQL user account mapped to one role, with `EXECUTE`/`SELECT` grants reused directly from `apiche-config.md`'s existing per-endpoint Role assignments. Audit actor identity resolves via MySQL's own `CURRENT_USER()` — no injection mechanism needed, unlike the still-open question for the four remaining DNI endpoints (tasks.md T208/T209).
+- **Spec impact**: `spec.md`'s FR-037, FR-046, SC-016 and the User/Role key entity describe Basic-Auth-based admin authentication from the prior amendment and now need updating to describe native database authentication instead — tracked in the same session that produced this decision.
+- **Net effect on the migration's risk profile**: this shrinks Apiche's surface from 44 endpoints to 4, and — since Admin/Reporting no longer pass through Apiche's SQL-substitution mechanism at all — removes this session's `/speckit-analyze` finding C1's blast radius for everything except those 4 remaining DNI endpoints, where it still applies in full.
+
 ---
 
 ## Technical Context *(superseded 2026-09-08 — see migration addendum above; retained as historical/behavioral reference)*
@@ -103,6 +113,18 @@ Re-evaluated against `research.md` §17–§21 and `apiche-config.md`, which des
 
 Gate remains PASS with one flagged, confirmed deviation (Principle VI / FR-046 MFA) — see Complexity Tracking.
 
+### Post-direct-database-access re-check (2026-09-08, same day)
+
+Re-evaluated against research.md §22 and the "Further narrowing" addendum above, which moved Admin and Reporting off Apiche entirely. This check supersedes the table above for Principles II, III and VI; the other five rows are unaffected and still hold.
+
+| # | Principle | Status | Rationale |
+|---|-----------|--------|-----------|
+| II | Layered Architecture (Visitor-Facing and Background Surface) | PASS | Principle II itself was narrowed by amendment 2.0.0 to describe exactly this state: Apiche now genuinely is the entire mechanism for the DNI surface and background jobs, with nothing else claimed of it. |
+| III | API-First for Untrusted Surfaces; Direct Database Access for Trusted Internal Tooling | PASS | Principle III was amended by 2.0.0 to state exactly this design: the DNI client stays API-only; administrative tooling and the reporting portal both now connect directly to the database, consistent with the principle's own text rather than in tension with it as before. |
+| VI | Security by Default | PASS | TLS covers both the Apiche/DNI surface and every direct database connection; Basic Auth still governs the DNI client (no role) and system-to-system API keys; native MySQL roles (`role_system_administrator`, `role_marketing_administrator`, `role_analyst`) now enforce Admin/Reporting authorization at the database engine itself — still server-side, still non-bypassable, just relocated. The FR-046 MFA deviation flagged in the table above is unaffected by this further change and still stands. |
+
+This further **reduces** this session's `/speckit-analyze` finding C1's severity in practice: Admin and Reporting no longer pass through Apiche's substitution mechanism at all, shrinking C1's unresolved blast radius from 44 endpoints to the 4 remaining DNI ones (tasks.md T208 is unaffected in wording but now protects a much smaller surface).
+
 ## Project Structure *(superseded 2026-09-08 for the backend — see migration addendum above; `client/dni-script` and `tests/` sections remain materially accurate)*
 
 ### Documentation (this feature)
@@ -168,37 +190,39 @@ tests/
 
 **Structure Decision**: Web-service option, adapted: a single ASP.NET Core solution split into the four constitution-mandated layers (`Attribution.Api` → `Attribution.Application` → `Attribution.Domain` → `Attribution.Infrastructure`) plus a separate `Attribution.Workers` host for the decoupled ingestion/publication/alerting/retention loops required by FR-016, FR-027 and FR-047, and a fully independent `client/dni-script` package for the visitor-facing insertion client — independent because it ships to customer websites, not to the API's own runtime, and is tested at the browser level rather than as a .NET project. No first-party reporting frontend exists in this repository (Delivery boundary, spec.md); the reporting portal is an external, separately-owned consumer of `Attribution.Api`.
 
-### Target Project Structure (2026-09-08, Apiche architecture)
+### Target Project Structure (2026-09-08, updated same day for direct database access)
 
 ```text
-apiche/
-├── endpoints/                       # one config file (or one entry in one config) per endpoint
-│   ├── dni/                         # /v1/dni/* — allocate, heartbeat, consent, shadow-observe
-│   ├── admin/                       # /v1/admin/* — pools, numbers, websites, users, rules,
-│   │                                 #   review, alerts, audit, health, privacy
-│   └── reports/                     # /v1/reports/* — dashboard, campaigns, calls, missed,
-│                                     #   qualified, unattributed, coverage, and each's export.csv
+apiche/                              # narrowed 2026-09-08 — DNI + background jobs only
+├── endpoints/
+│   └── dni/                         # /v1/dni/* — allocate, heartbeat, consent, shadow-observe
+│                                     #   (Admin and Reporting are NOT here — see db/access-roles/ below)
 ├── jobs/                            # scheduled worker-equivalent jobs (research.md §19)
 │   ├── ingestion-8x8.job            # CDR/Call Leg polling, FR-016
 │   ├── publish-google-ads.job       # FR-025, FR-044
 │   ├── publish-ga4.job              # FR-026
 │   ├── alerting.job                 # FR-047 threshold evaluation
 │   └── retention.job                # FR-040 purge/de-identify, FR-039 erasure
-└── auth/                            # Basic Auth credential configuration (research.md §20)
+└── auth/                            # Basic Auth credential configuration for the DNI surface only (research.md §20)
 
 db/
 ├── schema/                          # versioned, hand-authored .sql migrations (research.md §13)
-└── procedures/                      # stored procedures backing multi-statement endpoints/jobs
-    ├── sp_dni_allocate.sql          # FR-003, FR-050
-    ├── sp_dni_heartbeat.sql
-    ├── sp_ingest_call.sql           # FR-017, FR-045
-    ├── sp_attribute_call.sql        # FR-018, FR-020, FR-021
-    ├── sp_qualify_call.sql          # FR-022–FR-024
-    ├── sp_publish_conversion.sql    # FR-027, FR-044
-    ├── sp_resolve_review_case.sql   # FR-036
-    ├── sp_create_qualification_rule.sql   # FR-024 contiguity validation
-    ├── sp_deactivate_user.sql       # FR-046 zero-admin guard
-    └── ...                          # full list in apiche-config.md Appendix A
+├── access-roles/                    # NEW 2026-09-08 — native MySQL role/grant definitions for
+│   │                                 #   direct Admin/Reporting access (research.md §22)
+│   ├── role_system_administrator.sql
+│   ├── role_marketing_administrator.sql
+│   └── role_analyst.sql
+└── procedures/                      # stored procedures backing DNI endpoints, background jobs,
+    │                                 #   and every direct-access Admin/Reporting operation
+    ├── sp_dni_allocate.sql          # FR-003, FR-050 — invoked via Apiche
+    ├── sp_dni_heartbeat.sql         #   invoked via Apiche
+    ├── sp_ingest_call_record.sql    # FR-017, FR-045 — invoked via an Apiche background job
+    ├── sp_attribute_call.sql        # FR-018, FR-020, FR-021 — invoked via an Apiche background job
+    ├── sp_qualify_call.sql          # FR-022–FR-024 — invoked directly by admin tooling (rule mgmt)
+    ├── sp_resolve_review_case.sql   # FR-036 — invoked directly by admin tooling
+    ├── sp_create_qualification_rule_version.sql   # FR-024 contiguity validation — direct access
+    ├── sp_deactivate_user.sql       # FR-046 zero-admin guard — invoked directly by admin tooling
+    └── ...                          # full list, and which access path each uses, in apiche-config.md Appendix A
 
 client/
 └── dni-script/                      # unchanged — DNI JavaScript client (FR-008–FR-011, FR-039)
@@ -206,10 +230,16 @@ client/
     └── tests/                       # Playwright browser-level tests, unchanged
 
 tests/
-├── Attribution.SqlTests/            # replaces Attribution.UnitTests — one suite per stored
-│                                     #   procedure, test-first per Principle V (research.md §18)
-├── Attribution.ContractTests/       # HTTP-level black-box tests against apiche-config.md's
-│                                     #   endpoints, replacing Attribution.IntegrationTests
+├── Attribution.SqlTests/            # one suite per stored procedure, test-first per Principle V
+│                                     #   (research.md §18) — covers every procedure regardless of
+│                                     #   whether it's Apiche- or direct-access-invoked
+├── Attribution.ContractTests/       # HTTP-level black-box tests against Apiche's 4 DNI endpoints
+│                                     #   only (narrowed 2026-09-08 — Admin/Reporting have no HTTP
+│                                     #   surface left to black-box test against)
+├── Attribution.DirectAccessTests/   # NEW 2026-09-08 — connects as each native MySQL role in turn
+│                                     #   (role_system_administrator/marketing_administrator/analyst)
+│                                     #   and asserts a denied operation is actually denied at the
+│                                     #   database engine, not just untested (research.md §22)
 └── Attribution.UnitTests/           # retained read-only as the migration's behavioral oracle
                                       #   (research.md §18) until stored-procedure parity is proven,
                                       #   then removed

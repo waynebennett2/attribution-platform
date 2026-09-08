@@ -221,22 +221,23 @@ One row per feed; advanced only after a batch is durably persisted, so a restart
 
 ## User / Role
 
-> **Updated 2026-09-08** (plan.md "Architecture Migration" addendum; research.md §20): Basic Auth, verified fresh on every request, replaces the JWT access/refresh-token design; TOTP MFA is dropped. Fields below reflect the current, authoritative shape. `spec.md`'s FR-046 and SC-016 were formally amended to match in the 2026-09-08 `/speckit.clarify` session.
+> **Updated 2026-09-08, twice**: first to Basic Auth (plan.md "Architecture Migration" addendum; research.md §20), then — same day, after the project owner reviewed `apiche-config.md` — to native database accounts for every interactive (`local`) role, since Admin and Reporting no longer go through Apiche at all (research.md §22, constitution amendment 2.0.0). `integration_service` accounts are unaffected by the second change: they still authenticate via API key against Apiche, since Integration Service is neither an Admin nor a Reporting operation. Fields below reflect the current, authoritative shape; `spec.md`'s FR-035, FR-037, FR-046 and SC-016 were formally amended to match in the 2026-09-08 `/speckit.clarify` sessions.
 
 | Field | Notes |
 |---|---|
 | id | |
-| username | nullable — integration-service accounts only, which authenticate via `client_id`/API key instead |
-| client_id | nullable — integration-service accounts only |
+| db_username | `local` accounts only — the exact native database username this row's identity maps to; the actual credential (password) lives entirely in the database's own account store, never in this table |
+| username | nullable — `integration_service` accounts only, which authenticate via `client_id`/API key against Apiche instead |
+| client_id | nullable — `integration_service` accounts only |
 | identity_type | local \| integration_service |
-| mapped_role | the role assigned when the account was created: System Administrator \| Marketing Administrator \| Analyst \| Integration Service |
-| role_override | nullable — a System Administrator's later change to the role, audited (FR-046) |
+| mapped_role | the role assigned when the account was created: System Administrator \| Marketing Administrator \| Analyst \| Integration Service — for a `local` account this MUST correspond to the native database role (`role_system_administrator`/`role_marketing_administrator`/`role_analyst`) the `db_username` account is granted |
+| role_override | nullable — a System Administrator's later change to the role, audited (FR-046); changing this MUST also re-grant the `db_username` account to the new native database role and revoke the old one |
 | role_overridden_by | nullable — who applied the change |
-| password_hash | the account's Basic Auth password (`local` accounts) or API key (`integration_service` accounts), stored only as a salted hash (e.g. bcrypt/argon2), verified by a stored procedure that never returns it; never logged, never placed in `apiche-config.md` or any versioned file in plaintext |
-| is_active | checked fresh on every request via Basic Auth — setting this `false` removes access on the very next request, with no refresh interval to wait out |
-| created_at, last_seen_at | `last_seen_at` updated on each successful Basic Auth check, replacing the former discrete "sign-in" event |
+| api_key_hash | `integration_service` accounts only — the account's Apiche API key, stored only as a salted hash (e.g. bcrypt/argon2), verified by Apiche's own credential check; never logged, never placed in `apiche-config.md` or any versioned file in plaintext. `local` accounts have no equivalent column here — their credential is the database's own account password, managed only through the database's own account-management facilities |
+| is_active | for `local` accounts, this row's value MUST always match whether `db_username`'s native database account is currently enabled — disabling the database account (e.g. `ALTER USER ... ACCOUNT LOCK`) removes access on the very next operation attempted with it, with no separate token or session to wait out; for `integration_service` accounts this is checked on every Apiche request as before |
+| created_at, last_seen_at | for `local` accounts, `last_seen_at` is updated from the database's own connection/session log rather than from an Apiche request |
 
-**Constraint**: `local` accounts are unlimited and are how every interactive user (System Administrator, Marketing Administrator, Analyst) authenticates — there is no cap and no separate "break-glass" tier, since there is no other auth path for those accounts to be a fallback from. `integration_service` identity_type is barred from interactive endpoints (FR-038). At least one active `local` account with the System Administrator role MUST always exist; deactivating the last one, or changing its role away from System Administrator, is rejected (`sp_deactivate_user`/`sp_change_user_role` in `apiche-config.md` Appendix A). There is no sign-in or refresh endpoint: every `/v1/admin/*` and `/v1/reports/*` request itself carries the Basic Auth credential and is checked independently — see contracts/admin-api.md and research.md §20.
+**Constraint**: `local` accounts are unlimited and are how every interactive user (System Administrator, Marketing Administrator, Analyst) authenticates — there is no cap and no separate "break-glass" tier, since there is no other auth path for those accounts to be a fallback from. `integration_service` identity_type is barred from interactive endpoints (FR-038) and remains Apiche-authenticated, unaffected by the direct-database-access change. At least one active `local` account with the System Administrator role MUST always exist; deactivating the last one, or changing its role away from System Administrator, is rejected (`sp_deactivate_user`/`sp_change_user_role` in `apiche-config.md` Appendix A, now invoked directly rather than via an Apiche endpoint). There is no sign-in, refresh, or HTTP endpoint of any kind for `local` accounts: every direct database connection carries the native account's own credential and is checked by the database engine itself — see `contracts/admin-api.md` and research.md §22.
 
 ## Alert
 

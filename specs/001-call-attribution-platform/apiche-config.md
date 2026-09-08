@@ -11,6 +11,29 @@ under `src/Attribution.Api/Controllers/` is covered, plus the four background wo
 translated using the real table/column names in the FluentMigrator migrations and the
 real Dapper SQL in `src/Attribution.Infrastructure/Data/*.cs`.
 
+**Admin and Reporting: direct database access (architecture decision).** After reviewing
+this document, the project owner decided that the DNI section and the Background Worker
+Jobs section stay exactly as genuine Apiche HTTP endpoints/scheduled jobs — DNI is public,
+untrusted JavaScript running in visitors' browsers, which structurally can never hold real
+database credentials, so it remains the one surface a gateway genuinely protects. Every
+operation under an **Admin — ...** heading and under **Reporting**, however, is
+documented below not as an Apiche HTTP endpoint but as **direct database access**: a
+trusted internal client application (the existing admin tooling, or the existing
+reporting portal — both already-trusted, already-authenticated internal operator tools,
+exactly like the reporting portal's existing direct read-only database access under the
+project constitution) connects straight to MySQL over a TLS connection authenticated as
+that specific human operator's own native MySQL user account, and executes the exact SQL
+statement or `CALL sp_xxx(...)` shown below directly, with no Apiche/HTTP layer and no
+HTTP Basic Auth in between. Authorization for these two sections is enforced by MySQL's
+own role-based access control — three native roles, `role_system_administrator`,
+`role_marketing_administrator`, and `role_analyst`, granted to each individual human
+user's own MySQL account per the same Role/permission mapping this document already
+states (see each subsection's **Required MySQL role**) — rather than by an HTTP-layer
+check, and the acting user's identity for audit-log writes is resolved via MySQL's own
+`CURRENT_USER()` inside each stored procedure rather than needing to be injected by
+anything. This is a deliberate architecture decision made after reviewing this document,
+not a correction of an earlier error; see Coverage Notes for further detail.
+
 **Conventions used throughout:**
 - A nested JSON body object (e.g. `utm`, `time_of_day`, `arrival_details`) is bound to
   **one** placeholder carrying that sub-object's raw JSON text; the SQL/procedure then
@@ -130,14 +153,15 @@ and needs no SQL endpoint of its own — see Coverage Notes.
 
 ## Admin — Websites
 
-Source: `AdminWebsitesController.cs`. Role for every endpoint: **SystemAdministrator**
+Source: `AdminWebsitesController.cs`. Every endpoint below is now direct database access
+(no Apiche) — see "Admin and Reporting: direct database access" at the top of this
+document. Required MySQL role for every operation: `role_system_administrator`
 (`Operation.ManagePools`).
 
 ### List websites
 
-- **Method**: GET
-- **Path**: `/v1/admin/websites`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's website list screen
+- **Required MySQL role**: `role_system_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -150,65 +174,62 @@ ORDER BY name
 
 ### Enable shadow mode
 
-- **Method**: POST
-- **Path**: `/v1/admin/websites/{id}/shadow-mode/enable`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "enable shadow mode" toggle for a website
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment, bound as a body/query field for Apiche
 - **SQL**:
 ```sql
-CALL sp_set_website_shadow_mode(<id>, 1, 'SetShadowMode')
+CALL sp_set_website_shadow_mode(<id>, 1)
 ```
-- See stored procedure `sp_set_website_shadow_mode` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_set_website_shadow_mode` in Appendix A.
 
 ### Disable shadow mode
 
-- **Method**: POST
-- **Path**: `/v1/admin/websites/{id}/shadow-mode/disable`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "disable shadow mode" toggle for a website
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**: `id` (string, GUID)
 - **SQL**:
 ```sql
-CALL sp_set_website_shadow_mode(<id>, 0, 'SetShadowMode')
+CALL sp_set_website_shadow_mode(<id>, 0)
 ```
-- See stored procedure `sp_set_website_shadow_mode` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_set_website_shadow_mode` in Appendix A.
 
 ### Enable multi-pool
 
-- **Method**: POST
-- **Path**: `/v1/admin/websites/{id}/multi-pool/enable`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "enable multi-pool" toggle for a website
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**: `id` (string, GUID)
 - **SQL**:
 ```sql
-CALL sp_set_website_multi_pool(<id>, 1, 'SetMultiPoolEnabled')
+CALL sp_set_website_multi_pool(<id>, 1)
 ```
-- See stored procedure `sp_set_website_multi_pool` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_set_website_multi_pool` in Appendix A.
 
 ### Disable multi-pool
 
-- **Method**: POST
-- **Path**: `/v1/admin/websites/{id}/multi-pool/disable`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "disable multi-pool" toggle for a website
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**: `id` (string, GUID)
 - **SQL**:
 ```sql
-CALL sp_set_website_multi_pool(<id>, 0, 'SetMultiPoolEnabled')
+CALL sp_set_website_multi_pool(<id>, 0)
 ```
-- See stored procedure `sp_set_website_multi_pool` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_set_website_multi_pool` in Appendix A.
 
 ---
 
 ## Admin — Number Pools
 
-Source: `AdminPoolsController.cs`, `AdminPoolsContracts.cs`. Role for every endpoint:
-**SystemAdministrator** (`Operation.ManagePools`).
+Source: `AdminPoolsController.cs`, `AdminPoolsContracts.cs`. Every endpoint below is now
+direct database access (no Apiche) — see "Admin and Reporting: direct database access" at
+the top of this document. Required MySQL role for every operation:
+`role_system_administrator` (`Operation.ManagePools`).
 
 ### Create pool
 
-- **Method**: POST
-- **Path**: `/v1/admin/pools`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's pool-creation screen
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `name` (string)
   - `scope_type` (string) — `"website" | "campaign" | "business_unit"`
@@ -218,13 +239,12 @@ Source: `AdminPoolsController.cs`, `AdminPoolsContracts.cs`. Role for every endp
 ```sql
 CALL sp_create_pool(<name>, <scope_type>, <scope_ref>, <default_number>)
 ```
-- See stored procedure `sp_create_pool` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_create_pool` in Appendix A.
 
 ### List pools
 
-- **Method**: GET
-- **Path**: `/v1/admin/pools`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's pool list screen
+- **Required MySQL role**: `role_system_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -240,9 +260,8 @@ ORDER BY np.name
 
 ### Get one pool
 
-- **Method**: GET
-- **Path**: `/v1/admin/pools/{id}`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's pool detail screen
+- **Required MySQL role**: `role_system_administrator`
 - **Parameters**: `id` (string, GUID)
 - **SQL**:
 ```sql
@@ -258,9 +277,8 @@ GROUP BY np.id, np.name, np.scope_type, np.scope_ref, np.default_number
 
 ### List a pool's tracking numbers
 
-- **Method**: GET
-- **Path**: `/v1/admin/pools/{id}/numbers`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's pool detail screen's number list
+- **Required MySQL role**: `role_system_administrator`
 - **Parameters**: `id` (string, GUID)
 - **SQL**:
 ```sql
@@ -276,9 +294,8 @@ has no file-upload primitive — POST/PUT bodies are JSON objects — so this is
 accept a JSON array of candidate DID strings instead (the browser/admin UI parses the CSV
 client-side before calling this endpoint). See Coverage Notes.
 
-- **Method**: POST
-- **Path**: `/v1/admin/pools/{id}/numbers/import`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's CSV import screen, after the browser has parsed the uploaded file client-side
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
   - `dids` (array of string) — one candidate DID per CSV row, in file order
@@ -286,24 +303,21 @@ client-side before calling this endpoint). See Coverage Notes.
 ```sql
 CALL sp_import_tracking_numbers(<id>, <dids>)
 ```
-- See stored procedure `sp_import_tracking_numbers` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_import_tracking_numbers` in Appendix A.
 
 ### List import-folder files
 
 Not a SQL operation at all — it lists `*.csv` files in a server-side folder
 (`NumberImportOptions.FolderPath`). See Coverage Notes.
 
-- **Method**: GET
-- **Path**: `/v1/admin/numbers/import-folder/files`
-- **Role**: SystemAdministrator
+- **Access**: Not a database operation at all, direct or otherwise — the admin tooling's from-folder import screen lists `*.csv` files from a server-side folder via ordinary filesystem access, exactly as before. Gating who may see this listing is still policy-equivalent to `role_system_administrator` (enforced by the admin tooling itself, since there is no SQL/MySQL grant to attach it to)
 - **Parameters**: none
 - **SQL**: N/A — not expressible as a SQL statement; see Coverage Notes.
 
 ### Import numbers from folder
 
-- **Method**: POST
-- **Path**: `/v1/admin/pools/{id}/numbers/import-from-folder`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's from-folder import action
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
   - `file_name` (string) — a bare file name (no path segments) inside the configured import folder
@@ -311,56 +325,54 @@ Not a SQL operation at all — it lists `*.csv` files in a server-side folder
 ```sql
 CALL sp_import_tracking_numbers_from_folder(<id>, <file_name>)
 ```
-- See stored procedure `sp_import_tracking_numbers_from_folder` in Appendix A (requires the MySQL server process itself to have filesystem access to the configured import folder — see Coverage Notes).
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_import_tracking_numbers_from_folder` in Appendix A (requires the MySQL server process itself to have filesystem access to the configured import folder — see Coverage Notes).
 
 ---
 
 ## Admin — Numbers
 
-Source: `AdminNumbersController.cs`. Role for every endpoint: **SystemAdministrator**
+Source: `AdminNumbersController.cs`. Every endpoint below is now direct database access
+(no Apiche) — see "Admin and Reporting: direct database access" at the top of this
+document. Required MySQL role for every operation: `role_system_administrator`
 (`Operation.ManageNumbers`).
 
 ### Suspend
 
-- **Method**: POST
-- **Path**: `/v1/admin/numbers/{id}/suspend`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "suspend" action on a tracking number
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**: `id` (string, GUID)
 - **SQL**:
 ```sql
 CALL sp_change_tracking_number_status(<id>, 'Suspended', 'SuspendTrackingNumber')
 ```
-- See stored procedure `sp_change_tracking_number_status` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_change_tracking_number_status` in Appendix A.
 
 ### Retire
 
-- **Method**: POST
-- **Path**: `/v1/admin/numbers/{id}/retire`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "retire" action on a tracking number
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**: `id` (string, GUID)
 - **SQL**:
 ```sql
 CALL sp_change_tracking_number_status(<id>, 'Retired', 'RetireTrackingNumber')
 ```
-- See stored procedure `sp_change_tracking_number_status` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_change_tracking_number_status` in Appendix A.
 
 ### Reactivate
 
-- **Method**: POST
-- **Path**: `/v1/admin/numbers/{id}/reactivate`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "reactivate" action on a tracking number
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**: `id` (string, GUID)
 - **SQL**:
 ```sql
 CALL sp_change_tracking_number_status(<id>, 'Active', 'ReactivateTrackingNumber')
 ```
-- See stored procedure `sp_change_tracking_number_status` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_change_tracking_number_status` in Appendix A.
 
 ### Move to another pool
 
-- **Method**: POST
-- **Path**: `/v1/admin/numbers/{id}/move`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "move to pool" action on a tracking number
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
   - `target_pool_id` (string, GUID)
@@ -368,13 +380,15 @@ CALL sp_change_tracking_number_status(<id>, 'Active', 'ReactivateTrackingNumber'
 ```sql
 CALL sp_move_tracking_number(<id>, <target_pool_id>)
 ```
-- See stored procedure `sp_move_tracking_number` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_move_tracking_number` in Appendix A.
 
 ---
 
 ## Admin — Users
 
-Source: `AdminUsersController.cs`. Role for every endpoint: **SystemAdministrator**
+Source: `AdminUsersController.cs`. Every endpoint below is now direct database access (no
+Apiche) — see "Admin and Reporting: direct database access" at the top of this document.
+Required MySQL role for every operation: `role_system_administrator`
 (`Operation.ManageUsers`). Note: password storage/verification itself is Apiche's native
 Basic Auth credential store (out of scope per the task); the SQL here only maintains the
 `users` table's RBAC role metadata (username, role, active flag) that `RbacPolicy`
@@ -382,9 +396,8 @@ resolves against. See Coverage Notes.
 
 ### List users
 
-- **Method**: GET
-- **Path**: `/v1/admin/users`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's user list screen
+- **Required MySQL role**: `role_system_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -397,61 +410,57 @@ ORDER BY created_at
 
 ### Create user
 
-- **Method**: POST
-- **Path**: `/v1/admin/users`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's user-creation screen
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
-  - `username` (string)
-  - `password` (string) — not referenced by the SQL below; registered against Apiche's native Basic Auth credential store as a separate step (see Coverage Notes)
-  - `role` (string) — `SystemAdministrator | MarketingAdministrator | Analyst | IntegrationService`
+  - `username` (string) — becomes the native database account's own username (`db_username`)
+  - `role` (string) — `SystemAdministrator | MarketingAdministrator | Analyst | IntegrationService`; for `Local` accounts (every role except `IntegrationService`) this determines which native database role (`role_system_administrator`/`role_marketing_administrator`/`role_analyst`) the account is granted
+- **Not a field here**: there is no `password` field. The native account's actual password is set through the database's own account-creation facility (`CREATE USER ... IDENTIFIED BY`), communicated to the new user out of band — never through this operation or stored in the platform's own records (data-model.md's User/Role note; `IntegrationService` accounts remain the one exception, still registered against Apiche's native Basic Auth credential store since that role stays Apiche-authenticated).
 - **SQL**:
 ```sql
 CALL sp_create_user(<username>, <role>)
 ```
-- See stored procedure `sp_create_user` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_create_user` in Appendix A.
 
 ### Deactivate user
 
-- **Method**: POST
-- **Path**: `/v1/admin/users/{id}/deactivate`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "deactivate user" action
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
-  - `actor_user_id` (string) — the acting administrator's user id, for the audit trail (supplied by Apiche from the caller's own Basic Auth identity, not a client-facing field)
-- **SQL**:
+- **SQL** (the actor is resolved from `CURRENT_USER()` inside the procedure, not passed as a parameter):
 ```sql
-CALL sp_deactivate_user(<id>, <actor_user_id>)
+CALL sp_deactivate_user(<id>)
 ```
-- See stored procedure `sp_deactivate_user` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_deactivate_user` in Appendix A.
 
 ### Override role
 
-- **Method**: POST
-- **Path**: `/v1/admin/users/{id}/role-override`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "override role" action
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
   - `role` (string) — the new role
-  - `actor_user_id` (string) — the acting administrator's user id
-- **SQL**:
+- **SQL** (the actor is resolved from `CURRENT_USER()` inside the procedure, not passed as a parameter):
 ```sql
-CALL sp_override_user_role(<id>, <role>, <actor_user_id>)
+CALL sp_override_user_role(<id>, <role>)
 ```
-- See stored procedure `sp_override_user_role` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_override_user_role` in Appendix A.
 
 ---
 
 ## Admin — Qualification Rules
 
 Source: `AdminQualificationRulesController.cs`, `AdminQualificationRulesContracts.cs`.
-Role for every endpoint: **SystemAdministrator or MarketingAdministrator**
+Every endpoint below is now direct database access (no Apiche) — see "Admin and
+Reporting: direct database access" at the top of this document. Required MySQL role for
+every operation: `role_system_administrator` or `role_marketing_administrator`
 (`Operation.ManageRules`).
 
 ### List rule versions for a scope
 
-- **Method**: GET
-- **Path**: `/v1/admin/qualification-rules`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's qualification-rule version history screen
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**:
   - `scope_type` (string) — `default | website | campaign`
   - `scope_ref` (string, nullable) — required for `website`/`campaign`, empty for `default`
@@ -465,45 +474,43 @@ ORDER BY version
 
 ### Create a new rule version
 
-- **Method**: POST
-- **Path**: `/v1/admin/qualification-rules`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "create rule version" screen
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Body fields**:
   - `scope_type` (string) — `default | website | campaign`
   - `scope_ref` (string, nullable) — required for `website`/`campaign`
   - `conditions` (object) — `{direction, answered_required, min_connected_duration_seconds, time_of_day: {start, end} | null}`
   - `effective_start` (string, ISO datetime)
-  - `actor_user_id` (string) — the acting administrator's user id (`created_by`)
-- **SQL**:
+- **SQL** (`created_by` is resolved from `CURRENT_USER()` inside the procedure, not passed as a parameter):
 ```sql
-CALL sp_create_qualification_rule_version(<scope_type>, <scope_ref>, <conditions>, <effective_start>, <actor_user_id>)
+CALL sp_create_qualification_rule_version(<scope_type>, <scope_ref>, <conditions>, <effective_start>)
 ```
-- See stored procedure `sp_create_qualification_rule_version` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_create_qualification_rule_version` in Appendix A.
 
 ### Delete a not-yet-effective future version
 
-- **Method**: DELETE
-- **Path**: `/v1/admin/qualification-rules/{id}`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "delete future rule version" action
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: `id` (string, GUID)
 - **SQL**:
 ```sql
 CALL sp_delete_future_qualification_rule_version(<id>)
 ```
-- See stored procedure `sp_delete_future_qualification_rule_version` in Appendix A.
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_delete_future_qualification_rule_version` in Appendix A.
 
 ---
 
 ## Admin — Review
 
-Source: `AdminReviewController.cs`. Role for every endpoint: **SystemAdministrator or
-MarketingAdministrator** (`Operation.ManualReview`).
+Source: `AdminReviewController.cs`. Every endpoint below is now direct database access
+(no Apiche) — see "Admin and Reporting: direct database access" at the top of this
+document. Required MySQL role for every operation: `role_system_administrator` or
+`role_marketing_administrator` (`Operation.ManualReview`).
 
 ### List open review cases
 
-- **Method**: GET
-- **Path**: `/v1/admin/review-cases`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's open review-case queue
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -514,24 +521,22 @@ WHERE status = 'Open'
 ORDER BY opened_at ASC
 ```
 (`past_age_threshold` in the current JSON response is a client-side comparison against the
-configured `AlertingThresholds.ReviewCaseAge` value, not a stored column — Apiche's caller
-compares `age_seconds` against that same configured threshold.)
+configured `AlertingThresholds.ReviewCaseAge` value, not a stored column — the admin
+tooling compares `age_seconds` against that same configured threshold.)
 
 ### Resolve a review case
 
-- **Method**: POST
-- **Path**: `/v1/admin/review-cases/{id}/resolve`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "resolve review case" action
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
   - `session_id` (string, GUID, nullable) — provide this XOR `confirm_unattributed`
   - `confirm_unattributed` (boolean, nullable)
-  - `actor_user_id` (string) — the resolving user's id
-- **SQL**:
+- **SQL** (the resolving user is resolved from `CURRENT_USER()` inside the procedure, not passed as a parameter):
 ```sql
-CALL sp_resolve_review_case(<id>, <session_id>, <confirm_unattributed>, <actor_user_id>)
+CALL sp_resolve_review_case(<id>, <session_id>, <confirm_unattributed>)
 ```
-- See stored procedure `sp_resolve_review_case` in Appendix A. (The Google Ads/GA4
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_resolve_review_case` in Appendix A. (The Google Ads/GA4
   correction side effect this can trigger requires an outbound HTTP call the stored
   procedure itself cannot make — see Coverage Notes.)
 
@@ -539,14 +544,15 @@ CALL sp_resolve_review_case(<id>, <session_id>, <confirm_unattributed>, <actor_u
 
 ## Admin — Alerts
 
-Source: `AdminAlertsController.cs`. Role for every endpoint: **SystemAdministrator or
-MarketingAdministrator** (`Operation.AcknowledgeAlerts`).
+Source: `AdminAlertsController.cs`. Every endpoint below is now direct database access
+(no Apiche) — see "Admin and Reporting: direct database access" at the top of this
+document. Required MySQL role for every operation: `role_system_administrator` or
+`role_marketing_administrator` (`Operation.AcknowledgeAlerts`).
 
 ### List open alerts
 
-- **Method**: GET
-- **Path**: `/v1/admin/alerts`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's open alerts list
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -559,17 +565,15 @@ ORDER BY raised_at ASC
 
 ### Acknowledge an alert
 
-- **Method**: POST
-- **Path**: `/v1/admin/alerts/{id}/acknowledge`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "acknowledge alert" action
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
-  - `actor_user_id` (string) — the acknowledging user's id
-- **SQL**:
+- **SQL** (the acknowledging user is resolved from `CURRENT_USER()` inside the procedure, not passed as a parameter):
 ```sql
-CALL sp_acknowledge_alert(<id>, <actor_user_id>)
+CALL sp_acknowledge_alert(<id>)
 ```
-- See stored procedure `sp_acknowledge_alert` in Appendix A. (The immediate
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_acknowledge_alert` in Appendix A. (The immediate
   acknowledged-webhook/email delivery this currently performs synchronously requires an
   outbound HTTP call the stored procedure cannot make — see Coverage Notes.)
 
@@ -578,14 +582,15 @@ CALL sp_acknowledge_alert(<id>, <actor_user_id>)
 ## Admin — Audit
 
 Source: `AdminAuditController.cs`. Read-only; no PUT/PATCH/DELETE exists on this resource
-by design (the audit log is append-only). Role: **SystemAdministrator or
-MarketingAdministrator** (`Operation.ViewAuditLog`).
+by design (the audit log is append-only). This endpoint is now direct database access (no
+Apiche) — see "Admin and Reporting: direct database access" at the top of this document.
+Required MySQL role: `role_system_administrator` or `role_marketing_administrator`
+(`Operation.ViewAuditLog`).
 
 ### Query the audit log
 
-- **Method**: GET
-- **Path**: `/v1/admin/audit`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's audit-log search screen
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**:
   - `target_type` (string, nullable — empty string means "not supplied")
   - `target_id` (string, nullable)
@@ -606,18 +611,19 @@ ORDER BY occurred_at
 
 ## Admin — Health
 
-Source: `AdminHealthController.cs`. Role for every endpoint: **SystemAdministrator or
-MarketingAdministrator** (`Operation.ViewIntegrationHealth`). Threshold values
+Source: `AdminHealthController.cs`. Every endpoint below is now direct database access
+(no Apiche) — see "Admin and Reporting: direct database access" at the top of this
+document. Required MySQL role for every operation: `role_system_administrator` or
+`role_marketing_administrator` (`Operation.ViewIntegrationHealth`). Threshold values
 (`AlertingThresholds.IngestionLag`, `.PublicationFailureRate`, `.PoolUtilisation`) are
 deployment configuration, not table data — each query returns the raw metric and the
-caller (or Apiche's response-shaping layer) compares it against the configured threshold,
-exactly as the current thin controller methods already do in C#.
+admin tooling compares it against the configured threshold, exactly as the current thin
+controller methods already do in C#.
 
 ### Ingestion health
 
-- **Method**: GET
-- **Path**: `/v1/admin/health/ingestion`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's integration-health dashboard, ingestion panel
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -629,9 +635,8 @@ WHERE feed = '8x8-cdr'
 
 ### Publication health
 
-- **Method**: GET
-- **Path**: `/v1/admin/health/publication`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's integration-health dashboard, publication panel
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -646,14 +651,13 @@ GROUP BY destination
 ```
 (This produces one row per destination that has at least one publication row; a
 destination with zero rows — `sent=0, failed=0, failure_rate=NULL, healthy=true` in the
-current C# — needs Apiche's caller to fill in the two enum values `GoogleAds`/`Ga4` that
+current C# — needs the admin tooling to fill in the two enum values `GoogleAds`/`Ga4` that
 this GROUP BY may omit; see Coverage Notes.)
 
 ### Pool health
 
-- **Method**: GET
-- **Path**: `/v1/admin/health/pools`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's integration-health dashboard, pool panel
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -668,9 +672,8 @@ GROUP BY np.id, np.name
 
 ### Notification delivery health
 
-- **Method**: GET
-- **Path**: `/v1/admin/health/notifications`
-- **Role**: SystemAdministrator, MarketingAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's integration-health dashboard, notification-delivery panel
+- **Required MySQL role**: `role_system_administrator` and `role_marketing_administrator`
 - **Parameters**: none
 - **SQL**:
 ```sql
@@ -683,22 +686,21 @@ FROM notification_delivery_status
 
 ## Admin — Privacy
 
-Source: `AdminPrivacyController.cs`. Role: **SystemAdministrator**
-(`Operation.ManagePrivacy`).
+Source: `AdminPrivacyController.cs`. This endpoint is now direct database access (no
+Apiche) — see "Admin and Reporting: direct database access" at the top of this document.
+Required MySQL role: `role_system_administrator` (`Operation.ManagePrivacy`).
 
 ### Erase a visitor's data
 
-- **Method**: POST
-- **Path**: `/v1/admin/privacy/visitors/{id}/erase`
-- **Role**: SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the admin tooling's "erase visitor data" action
+- **Required MySQL role**: `role_system_administrator`
 - **Body fields**:
   - `id` (string, GUID) — path segment
-  - `actor_user_id` (string) — the requesting administrator's id
-- **SQL**:
+- **SQL** (the requesting administrator is resolved from `CURRENT_USER()` inside the procedure, not passed as a parameter):
 ```sql
-CALL sp_erase_visitor(<id>, <actor_user_id>)
+CALL sp_erase_visitor(<id>)
 ```
-- See stored procedure `sp_erase_visitor` in Appendix A (the surrogate-hash construction
+- Invoked directly against MySQL (no Apiche); see stored procedure `sp_erase_visitor` in Appendix A (the surrogate-hash construction
   it uses is a documented approximation of the app's keyed HMAC-SHA256 — see Coverage
   Notes).
 
@@ -707,21 +709,23 @@ CALL sp_erase_visitor(<id>, <actor_user_id>)
 ## Reporting
 
 Source: `ReportsController.cs`, `Attribution.Application.Administration.ReportingService`,
-`Attribution.Infrastructure.Data.ReportingRepository`. Role for every endpoint:
-**Analyst, MarketingAdministrator, or SystemAdministrator** for the JSON endpoints
-(`Operation.ViewReports`); the same three roles for the CSV twins
-(`Operation.ExportReports`) — Integration Service holds neither (FR-038). Every report has
-a `.../export.csv` twin whose SQL is byte-identical to its JSON sibling; only the response
-content-type/formatting differs (see Coverage Notes — Apiche's CSV formatting is a
-presentation-layer concern, not a SQL one). `<from>`/`<to>` are `YYYY-MM-DD` calendar
-dates; `<to>` is inclusive as a calendar day, so the SQL uses the day *after* it as the
-exclusive upper bound, matching `ReportingRepository`'s own `To()` helper.
+`Attribution.Infrastructure.Data.ReportingRepository`. Every report below is now direct
+database access (no Apiche) — see "Admin and Reporting: direct database access" at the
+top of this document. Required MySQL role for every operation: `role_analyst`,
+`role_marketing_administrator`, and `role_system_administrator` (`Operation.ViewReports`
+and `Operation.ExportReports` — Integration Service holds neither, FR-038). There is no
+longer a JSON endpoint and a separate `.../export.csv` twin: with no HTTP layer to route
+between two response formats, that distinction collapses into a single operation — the
+reporting client runs the one SELECT below once and renders the result set as an
+on-screen report or exports it as a CSV file, both from the exact same query result, so
+the two can never disagree. `<from>`/`<to>` are `YYYY-MM-DD` calendar dates; `<to>` is
+inclusive as a calendar day, so the SQL uses the day *after* it as the exclusive upper
+bound, matching `ReportingRepository`'s own `To()` helper.
 
 ### Dashboard
 
-- **Method**: GET
-- **Path**: `/v1/reports/dashboard` (and `/v1/reports/dashboard/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's dashboard view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date)
 - **SQL**:
 ```sql
@@ -740,15 +744,14 @@ ORDER BY total_calls DESC
 ```
 (Totals — `total_calls`, `attributed_calls`, `attribution_rate`, `qualified_calls` — are
 derived by summing/dividing this same row set, exactly as `ReportingService.DashboardAsync`
-does; Apiche's caller performs that same aggregation over the returned rows, or a second,
-identical-filter aggregate query can be added as a companion endpoint if Apiche requires
-totals to come from SQL directly.)
+does; the reporting portal performs that same aggregation over the returned rows, or a
+second, identical-filter aggregate query can be run directly against MySQL if totals must
+come from SQL itself.)
 
 ### Campaigns
 
-- **Method**: GET
-- **Path**: `/v1/reports/campaigns` (and `/v1/reports/campaigns/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's campaigns view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date)
 - **SQL**:
 ```sql
@@ -766,9 +769,8 @@ ORDER BY total_calls DESC
 
 ### Calls
 
-- **Method**: GET
-- **Path**: `/v1/reports/calls` (and `/v1/reports/calls/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's calls view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date), `state` (string, nullable — `Attributed | Unattributed | Ambiguous`), `q` (string, nullable — free-text match against dialled/caller number)
 - **SQL**:
 ```sql
@@ -787,9 +789,8 @@ ORDER BY c.started_at DESC
 
 ### Missed
 
-- **Method**: GET
-- **Path**: `/v1/reports/missed` (and `/v1/reports/missed/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's missed-calls view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date)
 - **SQL**:
 ```sql
@@ -806,9 +807,8 @@ ORDER BY c.started_at DESC
 
 ### Qualified
 
-- **Method**: GET
-- **Path**: `/v1/reports/qualified` (and `/v1/reports/qualified/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's qualified-calls view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date)
 - **SQL**:
 ```sql
@@ -825,9 +825,8 @@ ORDER BY c.started_at DESC
 
 ### Unattributed
 
-- **Method**: GET
-- **Path**: `/v1/reports/unattributed` (and `/v1/reports/unattributed/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's unattributed-calls view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date)
 - **SQL**:
 ```sql
@@ -839,14 +838,13 @@ WHERE c.started_at >= <from> AND c.started_at < DATE_ADD(<to>, INTERVAL 1 DAY)
 ORDER BY c.started_at DESC
 ```
 (`totals.by_reason`, a group-by-reason count breakdown, is derived client-side from these
-same rows in `ReportingService.UnattributedAsync`; Apiche's caller performs the same
+same rows in `ReportingService.UnattributedAsync`; the reporting portal performs the same
 grouping over the returned rows.)
 
 ### Coverage
 
-- **Method**: GET
-- **Path**: `/v1/reports/coverage` (and `/v1/reports/coverage/export.csv`)
-- **Role**: Analyst, MarketingAdministrator, SystemAdministrator
+- **Access**: Direct database connection (no Apiche) — the reporting portal's coverage view
+- **Required MySQL role**: `role_analyst`, `role_marketing_administrator`, and `role_system_administrator`
 - **Parameters**: `from` (date), `to` (date)
 - **SQL**:
 ```sql
@@ -1201,34 +1199,42 @@ END
 Replaces `AdminWebsitesController.SetShadowMode`.
 
 ```sql
-CREATE PROCEDURE sp_set_website_shadow_mode(IN p_id CHAR(36), IN p_enable TINYINT(1), IN p_actor_user_id VARCHAR(36))
+CREATE PROCEDURE sp_set_website_shadow_mode(IN p_id CHAR(36), IN p_enable TINYINT(1))
 BEGIN
     DECLARE v_before TINYINT(1);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     SELECT shadow_mode_enabled INTO v_before FROM websites WHERE id = p_id;
     UPDATE websites SET shadow_mode_enabled = p_enable, updated_at = UTC_TIMESTAMP(6) WHERE id = p_id;
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'SetShadowMode', 'Website', p_id,
+    VALUES (UUID(), v_actor, 'SetShadowMode', 'Website', p_id,
         JSON_OBJECT('ShadowModeEnabled', v_before), JSON_OBJECT('ShadowModeEnabled', p_enable), UTC_TIMESTAMP(6));
 END
 ```
+
+`v_actor` is resolved from the database's own `CURRENT_USER()` — direct database access means there is no Apiche layer to inject an actor id as a parameter, and none is accepted as one (this session's FR-035 clarification).
 
 ### sp_set_website_multi_pool
 
 Replaces `AdminWebsitesController.SetMultiPool`.
 
 ```sql
-CREATE PROCEDURE sp_set_website_multi_pool(IN p_id CHAR(36), IN p_enable TINYINT(1), IN p_actor_user_id VARCHAR(36))
+CREATE PROCEDURE sp_set_website_multi_pool(IN p_id CHAR(36), IN p_enable TINYINT(1))
 BEGIN
     DECLARE v_before TINYINT(1);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     SELECT multi_pool_enabled INTO v_before FROM websites WHERE id = p_id;
     UPDATE websites SET multi_pool_enabled = p_enable, updated_at = UTC_TIMESTAMP(6) WHERE id = p_id;
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'SetMultiPoolEnabled', 'Website', p_id,
+    VALUES (UUID(), v_actor, 'SetMultiPoolEnabled', 'Website', p_id,
         JSON_OBJECT('MultiPoolEnabled', v_before), JSON_OBJECT('MultiPoolEnabled', p_enable), UTC_TIMESTAMP(6));
 END
 ```
 
+`v_actor` is resolved from the database's own `CURRENT_USER()` — same reasoning as `sp_set_website_shadow_mode` above.
+
 ### sp_create_pool
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
 
 Replaces `AdminPoolsController.CreatePool` — including the FR-050 digit-normalized
 default-number collision guard for multi-pool-enabled websites.
@@ -1274,6 +1280,8 @@ END
 ```
 
 ### sp_import_tracking_numbers
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
 
 Replaces `AdminPoolsController.ImportCsvRowsAsync` as invoked from the browser-upload
 path — one DID candidate per array element, in order; rejects malformed (not valid E.164)
@@ -1328,6 +1336,8 @@ repeated value in file order) — see Coverage Notes.
 
 ### sp_import_tracking_numbers_from_folder
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
 Replaces `AdminPoolsController.ImportNumbersFromFolder`. Requires the MySQL server
 process (not the Apiche app tier) to have filesystem read access to the configured import
 folder and `secure_file_priv` permitting it — see Coverage Notes.
@@ -1366,6 +1376,8 @@ END
 
 ### sp_change_tracking_number_status
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
 Replaces `AdminNumbersController.ChangeStatus` (backing Suspend/Retire/Reactivate).
 
 ```sql
@@ -1381,6 +1393,8 @@ END
 ```
 
 ### sp_move_tracking_number
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
 
 Replaces `AdminNumbersController.Move`.
 
@@ -1398,6 +1412,8 @@ END
 
 ### sp_create_user
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
 Replaces `AdminUsersController.Create`'s RBAC-metadata half (password/TOTP provisioning
 is Apiche's native Basic Auth store — see Coverage Notes).
 
@@ -1405,6 +1421,7 @@ is Apiche's native Basic Auth store — see Coverage Notes).
 CREATE PROCEDURE sp_create_user(IN p_username VARCHAR(255), IN p_role VARCHAR(32))
 BEGIN
     DECLARE v_id CHAR(36) DEFAULT UUID();
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     IF p_role NOT IN ('SystemAdministrator', 'MarketingAdministrator', 'Analyst', 'IntegrationService') THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'role must be one of: SystemAdministrator, MarketingAdministrator, Analyst, IntegrationService.';
     END IF;
@@ -1412,11 +1429,15 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Username is already in use.';
     END IF;
 
-    INSERT INTO users (id, username, identity_type, mapped_role, is_active, created_at)
-    VALUES (v_id, p_username, 'Local', p_role, 1, UTC_TIMESTAMP(6));
+    INSERT INTO users (id, db_username, username, identity_type, mapped_role, is_active, created_at)
+    VALUES (v_id, p_username, p_username, 'Local', p_role, 1, UTC_TIMESTAMP(6));
 
+    -- The native account itself (CREATE USER) and its role grant (GRANT role_x TO p_username) are
+    -- provisioned by the account-lifecycle tooling this procedure is one step of (tasks.md T163) —
+    -- deliberately not written as dynamic SQL here, since the actual password is set through the
+    -- database's own account-creation facility, out of band, per data-model.md's User/Role note.
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), 'unknown', 'CreateUser', 'User', v_id, NULL, JSON_OBJECT('Username', p_username, 'role', p_role), UTC_TIMESTAMP(6));
+    VALUES (UUID(), v_actor, 'CreateUser', 'User', v_id, NULL, JSON_OBJECT('Username', p_username, 'role', p_role), UTC_TIMESTAMP(6));
 
     SELECT v_id AS id;
 END
@@ -1424,17 +1445,24 @@ END
 
 ### sp_deactivate_user
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
+Actor identity is resolved from the database's own `CURRENT_USER()` — direct database access means there is no Apiche layer to inject an actor id as a parameter, and none is accepted as one (this session's FR-035 clarification).
+
 Replaces `AdminUsersController.Deactivate`, including
 `SystemAdministratorGuard.WouldRemoveLastActiveSystemAdministrator`.
 
 ```sql
-CREATE PROCEDURE sp_deactivate_user(IN p_id CHAR(36), IN p_actor_user_id VARCHAR(36))
+CREATE PROCEDURE sp_deactivate_user(IN p_id CHAR(36))
 BEGIN
     DECLARE v_effective_role VARCHAR(32);
     DECLARE v_is_active TINYINT(1);
     DECLARE v_active_admins INT;
+    DECLARE v_db_username VARCHAR(255);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
 
-    SELECT COALESCE(role_override, mapped_role), is_active INTO v_effective_role, v_is_active FROM users WHERE id = p_id;
+    SELECT COALESCE(role_override, mapped_role), is_active, db_username
+        INTO v_effective_role, v_is_active, v_db_username FROM users WHERE id = p_id;
 
     IF v_is_active = 1 THEN
         IF v_effective_role = 'SystemAdministrator' THEN
@@ -1445,9 +1473,11 @@ BEGIN
             END IF;
         END IF;
 
+        -- The native account itself (e.g. ALTER USER v_db_username@'%' ACCOUNT LOCK) is disabled by
+        -- the account-lifecycle tooling this procedure is one step of (tasks.md T163).
         UPDATE users SET is_active = 0 WHERE id = p_id;
         INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-        VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'DeactivateUser', 'User', p_id,
+        VALUES (UUID(), v_actor, 'DeactivateUser', 'User', p_id,
             JSON_OBJECT('is_active', true), JSON_OBJECT('is_active', false), UTC_TIMESTAMP(6));
     END IF;
 
@@ -1457,19 +1487,25 @@ END
 
 ### sp_override_user_role
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
+Actor identity is resolved from the database's own `CURRENT_USER()` — same reasoning as `sp_deactivate_user` above.
+
 Replaces `AdminUsersController.OverrideRole`, including the same zero-admin guard.
 
 ```sql
-CREATE PROCEDURE sp_override_user_role(IN p_id CHAR(36), IN p_new_role VARCHAR(32), IN p_actor_user_id VARCHAR(36))
+CREATE PROCEDURE sp_override_user_role(IN p_id CHAR(36), IN p_new_role VARCHAR(32))
 BEGIN
     DECLARE v_previous_role VARCHAR(32);
     DECLARE v_active_admins INT;
+    DECLARE v_db_username VARCHAR(255);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
 
     IF p_new_role NOT IN ('SystemAdministrator', 'MarketingAdministrator', 'Analyst', 'IntegrationService') THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'role must be one of: SystemAdministrator, MarketingAdministrator, Analyst, IntegrationService.';
     END IF;
 
-    SELECT COALESCE(role_override, mapped_role) INTO v_previous_role FROM users WHERE id = p_id;
+    SELECT COALESCE(role_override, mapped_role), db_username INTO v_previous_role, v_db_username FROM users WHERE id = p_id;
 
     IF p_new_role <> 'SystemAdministrator' AND v_previous_role = 'SystemAdministrator' THEN
         SELECT COUNT(*) INTO v_active_admins FROM users
@@ -1479,17 +1515,24 @@ BEGIN
         END IF;
     END IF;
 
-    UPDATE users SET role_override = p_new_role, role_overridden_by = p_actor_user_id WHERE id = p_id;
+    UPDATE users SET role_override = p_new_role, role_overridden_by = v_actor WHERE id = p_id;
 
+    -- The native role re-grant (REVOKE role_<previous> FROM v_db_username; GRANT role_<new> TO
+    -- v_db_username) is applied by the account-lifecycle tooling this procedure is one step of
+    -- (tasks.md T163), keeping the database's own grants and this row's role in lockstep.
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'OverrideUserRole', 'User', p_id,
-        JSON_OBJECT('role', v_previous_role), JSON_OBJECT('role', p_new_role, 'overriddenBy', p_actor_user_id), UTC_TIMESTAMP(6));
+    VALUES (UUID(), v_actor, 'OverrideUserRole', 'User', p_id,
+        JSON_OBJECT('role', v_previous_role), JSON_OBJECT('role', p_new_role, 'overriddenBy', v_actor), UTC_TIMESTAMP(6));
 
     SELECT id, username, COALESCE(role_override, mapped_role) AS effective_role FROM users WHERE id = p_id;
 END
 ```
 
 ### sp_create_qualification_rule_version
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
+Actor identity is resolved from the database's own `CURRENT_USER()` — direct database access means there is no Apiche layer to inject an actor id as a parameter, and none is accepted as one (this session's FR-035 clarification).
 
 Replaces `RuleVersioningService.CreateVersionAsync` — FR-024's structural
 contiguity/non-overlap guarantee (a new version's `effective_start` closes the prior
@@ -1499,7 +1542,7 @@ version's own start is rejected as it would leave a gap).
 ```sql
 CREATE PROCEDURE sp_create_qualification_rule_version(
     IN p_scope_type VARCHAR(16), IN p_scope_ref VARCHAR(255), IN p_conditions JSON,
-    IN p_effective_start DATETIME(6), IN p_actor_user_id VARCHAR(36)
+    IN p_effective_start DATETIME(6)
 )
 BEGIN
     DECLARE v_latest_id CHAR(36);
@@ -1509,6 +1552,7 @@ BEGIN
     DECLARE v_new_version INT;
     DECLARE v_conditions_json JSON;
     DECLARE v_now DATETIME(6) DEFAULT UTC_TIMESTAMP(6);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
 
     SET v_conditions_json = JSON_OBJECT(
         'RequiredDirection', JSON_EXTRACT(p_conditions, '$.direction'),
@@ -1535,10 +1579,10 @@ BEGIN
     END IF;
 
     INSERT INTO qualification_rules (id, scope_type, scope_ref, version, conditions, effective_start, effective_end, created_by, created_at)
-    VALUES (v_new_id, p_scope_type, NULLIF(p_scope_ref, ''), v_new_version, v_conditions_json, p_effective_start, NULL, p_actor_user_id, v_now);
+    VALUES (v_new_id, p_scope_type, NULLIF(p_scope_ref, ''), v_new_version, v_conditions_json, p_effective_start, NULL, v_actor, v_now);
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'CreateQualificationRuleVersion', 'QualificationRule', v_new_id,
+    VALUES (UUID(), v_actor, 'CreateQualificationRuleVersion', 'QualificationRule', v_new_id,
         NULL, JSON_OBJECT('id', v_new_id, 'version', v_new_version), v_now);
 
     SELECT id, scope_type, scope_ref, version, conditions, effective_start, effective_end, created_by, created_at
@@ -1547,6 +1591,8 @@ END
 ```
 
 ### sp_delete_future_qualification_rule_version
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
 
 Replaces `RuleVersioningService.DeleteFutureVersionAsync`.
 
@@ -1640,6 +1686,8 @@ END
 ```
 
 ### sp_qualify_call
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
 
 Shared helper replacing `QualificationService.QualifyAsync` — resolves the in-force rule
 (campaign scope beats website scope beats platform default, FR-024), evaluates it via
@@ -1737,6 +1785,8 @@ END
 ```
 
 ### sp_correct_publications_if_needed
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
 
 Shared helper replacing the DB-only half of `CorrectionService.CorrectIfNeededAsync`. The
 actual Google Ads retract/adjust HTTP call cannot run inside SQL (see Coverage Notes); this
@@ -1879,6 +1929,10 @@ END
 
 ### sp_resolve_review_case
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
+Actor identity is resolved from the database's own `CURRENT_USER()` — direct database access means there is no Apiche layer to inject an actor id as a parameter, and none is accepted as one (this session's FR-035 clarification).
+
 Replaces `ReviewResolutionService.ResolveAsync` in full, calling the shared
 `sp_qualify_call`/`sp_correct_publications_if_needed` helpers above so this stays
 consistent with fresh ingestion's own qualification/correction logic (FR-036, FR-044,
@@ -1886,7 +1940,7 @@ FR-045's "superseded, never overwritten" pattern).
 
 ```sql
 CREATE PROCEDURE sp_resolve_review_case(
-    IN p_review_case_id CHAR(36), IN p_session_id CHAR(36), IN p_confirm_unattributed TINYINT(1), IN p_actor_user_id VARCHAR(36)
+    IN p_review_case_id CHAR(36), IN p_session_id CHAR(36), IN p_confirm_unattributed TINYINT(1)
 )
 BEGIN
     DECLARE v_status VARCHAR(16);
@@ -1900,6 +1954,7 @@ BEGIN
     DECLARE v_resolution VARCHAR(64);
     DECLARE v_new_is_qualified TINYINT(1) DEFAULT 0;
     DECLARE v_now DATETIME(6) DEFAULT UTC_TIMESTAMP(6);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
 
     SELECT status, call_id INTO v_status, v_call_id FROM review_cases WHERE id = p_review_case_id;
     IF v_status = 'Resolved' THEN
@@ -1940,16 +1995,16 @@ BEGIN
 
     CALL sp_correct_publications_if_needed(v_call_id, IFNULL(v_old_was_qualified, 0), v_new_is_qualified, v_now);
 
-    UPDATE review_cases SET status = 'Resolved', resolved_by = p_actor_user_id, resolved_at = v_now, resolution = v_resolution
+    UPDATE review_cases SET status = 'Resolved', resolved_by = v_actor, resolved_at = v_now, resolution = v_resolution
     WHERE id = p_review_case_id;
 
     UPDATE alerts SET cleared_at = v_now
     WHERE condition_type = 'ReviewCaseAge' AND scope_ref = p_review_case_id AND cleared_at IS NULL;
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'ResolveReviewCase', 'ReviewCase', p_review_case_id,
+    VALUES (UUID(), v_actor, 'ResolveReviewCase', 'ReviewCase', p_review_case_id,
         JSON_OBJECT('status', 'Open'),
-        JSON_OBJECT('status', 'Resolved', 'resolvedBy', p_actor_user_id, 'attributionId', v_new_attribution_id, 'sessionId', p_session_id),
+        JSON_OBJECT('status', 'Resolved', 'resolvedBy', v_actor, 'attributionId', v_new_attribution_id, 'sessionId', p_session_id),
         v_now);
 
     SELECT v_new_attribution_id AS attribution_id, v_new_state AS state;
@@ -1958,25 +2013,30 @@ END
 
 ### sp_acknowledge_alert
 
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
+Actor identity is resolved from the database's own `CURRENT_USER()` — direct database access means there is no Apiche layer to inject an actor id as a parameter, and none is accepted as one (this session's FR-035 clarification).
+
 Replaces the DB-only half of `AdminAlertsController.Acknowledge`/`AlertingService.AcknowledgeAsync`.
 The synchronous acknowledged-webhook/email delivery this currently performs cannot run
 inside SQL — see Coverage Notes; a fast-polling companion job (or Apiche's own
 notification feature, if any) should pick up the just-acknowledged alert instead.
 
 ```sql
-CREATE PROCEDURE sp_acknowledge_alert(IN p_id CHAR(36), IN p_actor_user_id VARCHAR(36))
+CREATE PROCEDURE sp_acknowledge_alert(IN p_id CHAR(36))
 BEGIN
     DECLARE v_cleared_at DATETIME(6);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     SELECT cleared_at INTO v_cleared_at FROM alerts WHERE id = p_id;
     IF v_cleared_at IS NOT NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This alert has already cleared.';
     END IF;
 
-    UPDATE alerts SET acknowledged_at = UTC_TIMESTAMP(6), acknowledged_by = p_actor_user_id WHERE id = p_id;
+    UPDATE alerts SET acknowledged_at = UTC_TIMESTAMP(6), acknowledged_by = v_actor WHERE id = p_id;
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'AcknowledgeAlert', 'Alert', p_id,
-        JSON_OBJECT('acknowledged', false), JSON_OBJECT('acknowledged', true, 'acknowledgedBy', p_actor_user_id), UTC_TIMESTAMP(6));
+    VALUES (UUID(), v_actor, 'AcknowledgeAlert', 'Alert', p_id,
+        JSON_OBJECT('acknowledged', false), JSON_OBJECT('acknowledged', true, 'acknowledgedBy', v_actor), UTC_TIMESTAMP(6));
 
     SELECT id, condition_type, scope_ref, threshold, raised_at, last_notified_at, acknowledged_at, acknowledged_by, cleared_at
     FROM alerts WHERE id = p_id;
@@ -1984,6 +2044,10 @@ END
 ```
 
 ### sp_erase_visitor
+
+Invoked directly by an authenticated MySQL session (native role-based access, no Apiche) — see the "Admin and Reporting: direct database access" note at the top of this document.
+
+Actor identity is resolved from the database's own `CURRENT_USER()` — direct database access means there is no Apiche layer to inject an actor id as a parameter, and none is accepted as one (this session's FR-035 clarification).
 
 Replaces `RetentionService.EraseVisitorAsync`. The app's surrogate is a keyed
 HMAC-SHA256 of the caller id (`RetentionPolicy.HmacKey`, a deployment secret). Stock MySQL
@@ -1993,10 +2057,11 @@ Coverage Notes. The secret itself is read from a dedicated secrets table populat
 deploy time, never accepted as a client-supplied endpoint parameter.
 
 ```sql
-CREATE PROCEDURE sp_erase_visitor(IN p_visitor_id CHAR(36), IN p_actor_user_id VARCHAR(36))
+CREATE PROCEDURE sp_erase_visitor(IN p_visitor_id CHAR(36))
 BEGIN
     DECLARE v_now DATETIME(6) DEFAULT UTC_TIMESTAMP(6);
     DECLARE v_hmac_key VARCHAR(255);
+    DECLARE v_actor VARCHAR(32) DEFAULT SUBSTRING_INDEX(CURRENT_USER(), '@', 1);
     SELECT secret_value INTO v_hmac_key FROM app_secrets WHERE secret_name = 'retention_hmac_key';
 
     UPDATE visitors SET de_identified_at = v_now WHERE id = p_visitor_id AND de_identified_at IS NULL;
@@ -2013,8 +2078,8 @@ BEGIN
       AND NOT EXISTS (SELECT 1 FROM review_cases rc WHERE rc.call_id = c.id AND rc.status = 'Open');
 
     INSERT INTO audit_entries (id, actor_user_id, action, target_type, target_id, before_value, after_value, occurred_at)
-    VALUES (UUID(), COALESCE(p_actor_user_id, 'unknown'), 'EraseVisitor', 'Visitor', p_visitor_id, NULL,
-        JSON_OBJECT('erasedBy', p_actor_user_id, 'completedAt', v_now), v_now);
+    VALUES (UUID(), v_actor, 'EraseVisitor', 'Visitor', p_visitor_id, NULL,
+        JSON_OBJECT('erasedBy', v_actor, 'completedAt', v_now), v_now);
 END
 ```
 
@@ -2298,11 +2363,13 @@ CALL sp_purge_expired(UTC_TIMESTAMP(6), <call_purge_after_months>, <audit_log_re
   is only approximately reproduced in `sp_import_tracking_numbers`'s window-function
   logic — a straightforward re-implementation, not a byte-exact translation; if exact
   per-row duplicate semantics matter, this is worth hand-verifying against the SP body.
-- **`GET /v1/admin/numbers/import-folder/files` is not a SQL operation.** It lists `*.csv`
-  files in a server-side folder (`NumberImportOptions.FolderPath`) — filesystem metadata,
-  not database rows. This cannot be expressed as a SQL statement at all; it must either
-  stay a small custom (non-Apiche) endpoint, or be dropped if operators are willing to type
-  the file name directly into the from-folder import call instead of picking from a list.
+- **`GET /v1/admin/numbers/import-folder/files` is not a SQL operation, and stays that way
+  under direct database access too.** It lists `*.csv` files in a server-side folder
+  (`NumberImportOptions.FolderPath`) — filesystem metadata, not database rows. This cannot
+  be expressed as a SQL statement at all, whether reached through Apiche or a direct
+  database connection; it must either stay a small ordinary filesystem-listing feature of
+  the admin tooling itself, or be dropped if operators are willing to type the file name
+  directly into the from-folder import call instead of picking from a list.
 - **`POST /v1/admin/pools/{id}/numbers/import-from-folder` requires the MySQL server
   itself to read the shared import folder.** `sp_import_tracking_numbers_from_folder` uses
   `LOAD DATA INFILE`, which reads from the *database server's* filesystem, not the app
@@ -2318,8 +2385,10 @@ CALL sp_purge_expired(UTC_TIMESTAMP(6), <call_purge_after_months>, <audit_log_re
   for retryable/pending-correction rows) or to a small companion dispatcher for alert
   email/webhook delivery. This is a real behavior change from the current code, which
   performs the Google Ads retract/adjust call and the acknowledged-alert
-  webhook/email *synchronously, inside the HTTP request* — under Apiche it becomes
-  eventually-consistent (next worker tick), typically sub-minute given the existing
+  webhook/email *synchronously, inside the HTTP request* — under this design (direct
+  database access for `Resolve`/`Acknowledge`, an unchanged Apiche scheduled job for the
+  Publication Worker) it becomes eventually-consistent (next worker tick), typically
+  sub-minute given the existing
   30-second/1-minute poll intervals, but no longer synchronous.
 - **The retention surrogate hash is only approximated.** `RetentionService`'s
   `Surrogate()` method computes a keyed HMAC-SHA256 using a deployment secret
@@ -2335,36 +2404,64 @@ CALL sp_purge_expired(UTC_TIMESTAMP(6), <call_purge_after_months>, <audit_log_re
   only maintains the `users` row RBAC (`mapped_role`) resolves against. These two writes
   (credential store + `users` row) are not currently atomic with each other; a failure
   between them would need reconciliation tooling.
-- **CSV export endpoints share their JSON sibling's exact SQL; only the response format
-  differs.** `ReportsController`'s `.../export.csv` actions call the identical
-  `ReportingService` method as their JSON counterparts and only change how the result is
-  serialized (`text/csv` vs. JSON). This document treats the SQL as identical and shared;
-  whether Apiche formats one endpoint's result as CSV is a response-shaping/content-
-  negotiation feature, not something expressed in the SQL statement itself.
+- **The JSON/CSV report "twins" are no longer two endpoints at all.** `ReportsController`'s
+  `.../export.csv` actions used to call the identical `ReportingService` method as their
+  JSON counterparts and only change how the result was serialized (`text/csv` vs. JSON).
+  Under direct database access there is no HTTP layer to route between two response
+  formats, so — per the note at the top of the Reporting section — this collapses into a
+  single operation: the reporting portal runs the one SELECT once and renders it as a
+  screen or exports it as CSV, both from the same result set. This document treats the SQL
+  as identical and shared for that reason.
 - **Dashboard/unattributed report totals are computed over the returned rows, not by a
   second query.** `ReportingService.DashboardAsync`/`.UnattributedAsync` derive
   `attribution_rate`/`by_reason` etc. purely by summarizing the exact rows already
   returned (so a total can never disagree with what's displayed). The SQL statements above
   return the same row sets `ReportingRepository` does; the summarization itself is assumed
-  to happen in Apiche's response-shaping layer (or a client), not as separate SQL, to
-  preserve that "never disagrees" guarantee structurally rather than by two independently
-  written queries.
+  to happen in the reporting portal (or a client), not as separate SQL, to preserve that
+  "never disagrees" guarantee structurally rather than by two independently written
+  queries.
 - **`GET /v1/admin/health/publication` can under-report destinations with zero rows.** The
   `GROUP BY destination` SQL only returns a row for a destination that has at least one
   `conversion_publications` row; the current C# always returns exactly one row per
   `PublicationDestination` enum value (`sent=0, failed=0, healthy=true` for one with none).
-  Apiche's caller should left-join/union in the two known destination values
+  The admin tooling should left-join/union in the two known destination values
   (`GoogleAds`, `Ga4`) if an always-both-rows shape is required.
 - **`IngestionCheckpointRepository`/`IAlertingMetricsRepository`'s "recent" publication
   window is not actually time-bounded in the current code either** (documented directly in
   `AlertingRepository.GetRecentPublicationOutcomeCountsAsync`'s own comment: no
   attempt-timestamp column exists to filter by) — the SQL above faithfully reproduces that
   same all-time aggregate rather than inventing a time window the original code doesn't have.
-- Every admin write endpoint's SQL assumes the acting user's id arrives as an
-  `actor_user_id` field for audit attribution; in the current code this comes from the
-  authenticated JWT's `sub` claim via `IActorContext`, not a client-supplied field. Under
-  Apiche's Basic Auth model this should instead be sourced from whatever identity Apiche's
-  own Basic Auth layer resolves and injects per request (documented here as a body field
-  only because Apiche's contract, as given, ties every placeholder to an explicit
-  query/body field) — this needs to be reconciled with however Apiche actually exposes the
-  authenticated caller's identity to a stored procedure call.
+- **Admin and Reporting now use direct database access, not Apiche, per an explicit
+  architecture decision made after reviewing this document.** Every operation under an
+  `## Admin — ...` heading and under `## Reporting` is invoked directly against MySQL by a
+  trusted internal client (the admin tooling, the reporting portal) over TLS, authenticated
+  as that operator's own native MySQL user account, with authorization enforced by MySQL's
+  own role-based access control (`role_system_administrator`, `role_marketing_administrator`,
+  `role_analyst`) rather than an HTTP-layer check. DNI and the Background Worker Jobs are
+  unaffected and remain genuine Apiche HTTP endpoints/scheduled jobs — DNI specifically
+  because it is public, untrusted browser JavaScript that can never hold real database
+  credentials, the one surface a gateway genuinely protects.
+- **The previously-flagged `actor_user_id`/Apiche-identity-injection open item is now fully
+  resolved.** This document previously flagged, as its single highest-risk open item, that
+  every admin write endpoint's SQL assumed the acting user's id arrives as an
+  `actor_user_id` field sourced from "whatever identity Apiche's own Basic Auth layer
+  resolves and injects per request" — needing reconciliation with however Apiche actually
+  exposes that identity. Under direct database access, every
+  Admin/Reporting procedure that needs the acting user's id instead reads it via MySQL's own
+  `CURRENT_USER()` inside the procedure, since each human operator authenticates as their
+  own real MySQL session identity — no injection mechanism is needed at all. This is the
+  item's only occurrence anywhere in the document (nothing in DNI or the Background Worker Jobs
+  sections has an equivalent Apiche-identity-injection concern), so it is now fully
+  resolved rather than merely narrowed; see Appendix A's per-procedure `CURRENT_USER()`
+  notes on `sp_deactivate_user`, `sp_override_user_role`,
+  `sp_create_qualification_rule_version`, `sp_resolve_review_case`, `sp_acknowledge_alert`,
+  and `sp_erase_visitor`.
+- **The CSV-file-upload reshaping and the folder-import `LOAD DATA INFILE`
+  deployment-topology notes above still apply exactly as before.** Both were about the
+  SQL/stored-procedure design itself (no file-upload primitive in a JSON/SQL-parameter
+  model; `LOAD DATA INFILE` reading from the *database server's* filesystem, not the app
+  tier's) rather than about HTTP vs. direct-database invocation, so moving Admin to direct
+  database access changes neither: the admin tooling still pre-parses the CSV client-side
+  into a JSON array of DIDs before calling `sp_import_tracking_numbers` directly, and
+  `sp_import_tracking_numbers_from_folder` still requires the MySQL server process itself
+  (not the client) to have filesystem access to the configured import folder.
